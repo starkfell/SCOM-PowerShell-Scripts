@@ -1,16 +1,19 @@
-#  --- [Monitors_AutoResolve_Settings] Perl Script  ---
+#  --- [Monitors_AutoResolve_Settings] PowerShell Script  ---
 #
 # Author(s):        Ryan Irujo
 # Inception:        05.17.2013
-# Last Modified:    05.17.2013
+# Last Modified:    05.20.2013
 #
 # Description:      Script that retrieves the AutoResolve Settings on all enabled Monitors in SCOM. This script borrow heavily 
 #                   from the existing script found in the TechNet article link below:
 #                
 #                   http://social.technet.microsoft.com/Forums/en-US/operationsmanagergeneral/thread/328d5479-6ff6-49dc-b342-81f3ca70ce30/
 #
+#                   This Script needs to be ran from a machine that has the Operations Manager Console installed.
 #
-# Changes:           
+#
+# Changes:          05.20.2013 - [R. Irujo]
+#                   - Updated Description section.
 #
 #
 # Additional Notes: AutoResolve has two possible values: "True" or "False"
@@ -26,7 +29,7 @@ Clear-Host
 
 #Verifying that the $RMS variables has been provided.
 if (!$RMS) {
-  Write-Host "The SCOM Management Server currently hosting the RMS Role must be provided."
+	Write-Host "The SCOM Management Server currently hosting the RMS Role must be provided."
 	exit 1
 	}
 
@@ -84,7 +87,8 @@ foreach ($EnabledMonitor in $EnabledMonitors) {
 		}
 	}
 
-# Sorting through all Alert Settings and returning back those that have their AutoResolve setting equal to the $AutoResolve variable declared at the top of the script.
+# Sorting through all Alert Settings and returning back those that have their AutoResolve setting equal to the $AutoResolve 
+# variable declared at the top of the script.
 foreach ($Monitor in $MonitorsWithAlertSettings) {
 	$AutoResolveSettings = $Monitor.get_AlertSettings().AutoResolve
 	if ($AutoResolveSettings -eq $AutoResolve) {
@@ -96,8 +100,5 @@ foreach ($Monitor in $MonitorsWithAlertSettings) {
 #Return Back Final Results
 Write-Host "Management Pack Name - Monitor Name - AutoResolve Settings"
 $FinalResults
-	
 
 
-
-	
