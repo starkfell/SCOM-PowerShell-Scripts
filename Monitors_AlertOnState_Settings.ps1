@@ -34,7 +34,7 @@ if (!$RMS) {
 	}
 
 
-# Verifying that the $AlertOnState has been provided and is set to either Low, Normal, or High.
+# Verifying that the $AlertOnState has been provided and is set to either Warning or Error.
 if (($AlertOnState -ne "Warning") -and ($AlertOnState -ne "Error")) {
 	Write-Host "AutoResolve variable must be set to 'Warning' or 'Error'."
 	exit 1
