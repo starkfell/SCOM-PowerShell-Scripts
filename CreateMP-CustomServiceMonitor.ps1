@@ -13,6 +13,8 @@
 #
 # Changes:          08.20.2013 - [R. Irujo]
 #                   - Parameterized Script and added logic to verify that Parameters are provided.
+#                   - Added function to replace all '$' with '_' for the Service Name in the $CustomClass and $Monitor variables to
+#                     support custom SQL Instances.
 #
 #
 # Additional Notes: Mind the BACKTICKS throughout the Script! In particular, any XML changes that you may decide to add/remove/change
@@ -121,7 +123,7 @@ Write-Host "New References Added to Management Pack [$($MP.DisplayName)]."
 
 
 # Create Custom Class
-$CustomClass             = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackClass($MP,("CustomServiceMonitor_"+$ServiceName+"_"+[Guid]::NewGuid().ToString().Replace("-","")),"Public")
+$CustomClass             = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackClass($MP,("CustomServiceMonitor_"+$ServiceName.ToString().Replace("$","_")+"_"+[Guid]::NewGuid().ToString().Replace("-","")),"Public")
 $CustomClassBase         = ($MG.EntityTypes.GetClasses() | Where-Object {$_.Name -eq "Microsoft.Windows.ComputerRole"})
 $CustomClass.Base        = $CustomClassBase
 $CustomClass.Hosted      = $true
@@ -196,7 +198,7 @@ Write-Host "Discovery Configuration was successfully deployed to Management Pack
 
 # Creating New Service Monitor
 $ServiceMonitorType   = $MG.GetUnitMonitorTypes() | Where-Object {$_.Name -eq "Microsoft.Windows.CheckNTServiceStateMonitorType"}
-$Monitor              = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackUnitMonitor($MP,($ServiceName+"_"+[Guid]::NewGuid().ToString().Replace("-","")),"Public")
+$Monitor              = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackUnitMonitor($MP,($ServiceName.ToString().Replace("$","_")+"_"+[Guid]::NewGuid().ToString().Replace("-","")),"Public")
 
 
 # Setting new New Monitor Up as a Service Monitor and targeting the Hosts of the Group in the MP.
@@ -263,4 +265,3 @@ catch [System.Exception]
 
 
 Write-Host "Script has finished running."
-
