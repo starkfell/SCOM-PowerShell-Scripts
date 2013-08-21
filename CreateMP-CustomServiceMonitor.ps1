@@ -2,7 +2,7 @@
 #
 # Author(s):        Ryan Irujo
 # Inception:        08.18.2013
-# Last Modified:    08.20.2013
+# Last Modified:    08.21.2013
 #
 # Description:      This Script provides an automated method of creating Service Monitors in SCOM that are discovered
 #                   by using Filtered Registry Key Discoveries. The Script will be parameterized in the very near future. 
@@ -15,6 +15,9 @@
 #                   - Parameterized Script and added logic to verify that Parameters are provided.
 #                   - Added function to replace all '$' with '_' for the Service Name in the $CustomClass and $Monitor variables to
 #                     support custom SQL Instances.
+#					08.21.2013 - [R. Irujo]
+#					- Removed Importing of the PowerShell OperationsManager Module and instead import the SDK DLL Files.
+#					- Replaced most of the Where-Object filters with .NET Function calls to speed up the Script.
 #
 #
 # Additional Notes: Mind the BACKTICKS throughout the Script! In particular, any XML changes that you may decide to add/remove/change
@@ -29,10 +32,11 @@ param($ManagementServer,$ManagementPackID,$ManagementPackName,$ManagementPackDis
 
 Clear-Host
 
-# Import Operations Module if it isn't already imported.
-If (!(Get-Module OperationsManager)) {
-	Import-Module "D:\Program Files\System Center 2012\Operations Manager\Powershell\OperationsManager\OperationsManager.psd1"
-	}
+# Importing SCOM SDK DLL Files.
+Import-Module "C:\Program Files\System Center 2012\Operations Manager\Console\SDK Binaries\Microsoft.EnterpriseManagement.Core.dll"
+Import-Module "C:\Program Files\System Center 2012\Operations Manager\Console\SDK Binaries\Microsoft.EnterpriseManagement.OperationsManager.dll"
+Import-Module "C:\Program Files\System Center 2012\Operations Manager\Console\SDK Binaries\Microsoft.EnterpriseManagement.Runtime.dll"
+
 
 # Checking Parameter Values.
 if (!$ManagementServer) {
@@ -82,36 +86,31 @@ Write-Host "ManagementPackName: "        $ManagementPackName
 Write-Host "ManagementPackDisplayName: " $ManagementPackDisplayName
 
 
-Write-Host "Connecting to SCOM Management Group"
+Write-Host "Connecting to the SCOM Management Group"
 $MG = New-Object Microsoft.EnterpriseManagement.ManagementGroup($ManagementServer)
 
-Write-Host "Creating new Microsoft.EnterpriseManagement.Configuration.IO.ManagementPackFileStore object"
+Write-Host "Creating new [Microsoft.EnterpriseManagement.Configuration.IO.ManagementPackFileStore] object"
 $MPStore = New-Object Microsoft.EnterpriseManagement.Configuration.IO.ManagementPackFileStore
 
-Write-Host "Creating new Microsoft.EnterpriseManagement.Configuration.ManagementPack object"
+Write-Host "Creating new [Microsoft.EnterpriseManagement.Configuration.ManagementPack] object"
 $MP = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPack($ManagementPackID, $ManagementPackName, (New-Object Version(1, 0, 0)), $MPStore)
 
-Write-Host "Importing Management Pack"
+Write-Host "Importing New Management Pack"
 $MG.ImportManagementPack($MP)
 
-Write-Host "Getting Management Pack"
+Write-Host "Retrieving Newly Created Management Pack"
 $MP = $MG.GetManagementPacks($ManagementPackID)[0]
 	
-Write-Host "Setting Display Name"
+Write-Host "Setting Management Pack Display Name."
 $MP.DisplayName = $ManagementPackDisplayName
 
-Write-Host "Setting Description"
+Write-Host "Setting Management Pack Description."
 $MP.Description = "Auto Generated Management Pack via PowerShell"
 
 
-# Import Operations Module if it isn't already imported.
-If (!(Get-Module OperationsManager)) {
-	Import-Module "D:\Program Files\System Center 2012\Operations Manager\Powershell\OperationsManager\OperationsManager.psd1"
-	}
-	
-
-# Getting References to Add to Management Pack
-$MPToAdd = Get-SCOMManagementPack | Where-Object {$_.Name -eq "System.Library"}
+# Getting System Library Reference
+$SystemLibrary = "System.Library"
+$MPToAdd = $MG.GetManagementPacks($SystemLibrary)[0]
 $MPAlias = "System"
 
 
@@ -122,9 +121,9 @@ $MP.References.Add($MPAlias, $MPReference)
 Write-Host "New References Added to Management Pack [$($MP.DisplayName)]."
 
 
-# Create Custom Class
+# Creating Custom Class
 $CustomClass             = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackClass($MP,("CustomServiceMonitor_"+$ServiceName.ToString().Replace("$","_")+"_"+[Guid]::NewGuid().ToString().Replace("-","")),"Public")
-$CustomClassBase         = ($MG.EntityTypes.GetClasses() | Where-Object {$_.Name -eq "Microsoft.Windows.ComputerRole"})
+$CustomClassBase         = $MG.EntityTypes.GetClasses("Name='Microsoft.Windows.ComputerRole'")[0]
 $CustomClass.Base        = $CustomClassBase
 $CustomClass.Hosted      = $true
 $CustomClass.DisplayName = "Custom Service Monitor - $($ServiceDisplayName), Registry Key - $($RegistryKey)"
@@ -140,7 +139,7 @@ $Discovery.Description    = "Applies Custom Service Monitoring to a host if it c
 
 
 # Create Discovery <Discovery> - XML Portion and Setting 'Target' Value
-$DiscoveryTarget          = ($MG.EntityTypes.GetClasses() | Where-Object {$_.Name -eq "Microsoft.Windows.Server.OperatingSystem"}).Base
+$DiscoveryTarget          = $MG.EntityTypes.GetClasses("Name='Microsoft.Windows.OperatingSystem'")[0]
 $Discovery.Target         = $DiscoveryTarget
 
 
@@ -250,7 +249,6 @@ $ParentMonitor    = $MG.GetMonitors($MonitorCriteria)[0]
 $Monitor.ParentMonitorID = [Microsoft.EnterpriseManagement.Configuration.ManagementPackElementReference``1[Microsoft.EnterpriseManagement.Configuration.ManagementPackAggregateMonitor]]::op_implicit($ParentMonitor)
 
 
-
 Write-Host "$($Monitor.DisplayName) - Service Monitor was successfully deployed to Management Pack - $($MP.DisplayName)"
 
 
@@ -264,4 +262,4 @@ catch [System.Exception]
 	}
 
 
-Write-Host "Script has finished running."
+Write-Host "Deployment of Custom Service Monitor for [$($ServiceDisplayName)] and New Management Pack - [$($ManagementPackDisplayName)] is Complete!"
