@@ -15,9 +15,9 @@
 #                   - Parameterized Script and added logic to verify that Parameters are provided.
 #                   - Added function to replace all '$' with '_' for the Service Name in the $CustomClass and $Monitor variables to
 #                     support custom SQL Instances.
-#					08.21.2013 - [R. Irujo]
-#					- Removed Importing of the PowerShell OperationsManager Module and instead import the SDK DLL Files.
-#					- Replaced most of the Where-Object filters with .NET Function calls to speed up the Script.
+#		    08.21.2013 - [R. Irujo]
+#		    - Removed Importing of the PowerShell OperationsManager Module and instead import the SDK DLL Files.
+#	       	    - Replaced most of the Where-Object filters with .NET Function calls to speed up the Script.
 #
 #
 # Additional Notes: Mind the BACKTICKS throughout the Script! In particular, any XML changes that you may decide to add/remove/change
