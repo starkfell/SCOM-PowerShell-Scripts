@@ -2,22 +2,21 @@
 #
 # Author(s):        Ryan Irujo
 # Inception:        08.18.2013
-# Last Modified:    08.21.2013
+# Last Modified:    08.22.2013
 #
 # Description:      This Script provides an automated method of creating Service Monitors in SCOM that are discovered
-#                   by using Filtered Registry Key Discoveries. The Script will be parameterized in the very near future. 
-#                   Because of the amount of resources that are used on when this script is ran, 
-#                   it is probably best that you run it directly on a Management Server where the Operations Console is installed.
-#                   Code from both links below was utilized within this script:
+#                   by using Filtered Registry Key Discoveries.
 #
 #
 # Changes:          08.20.2013 - [R. Irujo]
 #                   - Parameterized Script and added logic to verify that Parameters are provided.
 #                   - Added function to replace all '$' with '_' for the Service Name in the $CustomClass and $Monitor variables to
 #                     support custom SQL Instances.
-#		    08.21.2013 - [R. Irujo]
-#		    - Removed Importing of the PowerShell OperationsManager Module and instead import the SDK DLL Files.
-#	       	    - Replaced most of the Where-Object filters with .NET Function calls to speed up the Script.
+#					08.21.2013 - [R. Irujo]
+#					- Removed Importing of the PowerShell OperationsManager Module and instead import the SDK DLL Files.
+#					- Replaced most of the Where-Object filters with .NET Function calls to speed up the Script.
+#                   08.22.2013 - [R. Irujo]
+#                   - Added Check to Script to see if the Management Pack ID Provided already exists in SCOM.
 #
 #
 # Additional Notes: Mind the BACKTICKS throughout the Script! In particular, any XML changes that you may decide to add/remove/change
@@ -41,42 +40,42 @@ Import-Module "C:\Program Files\System Center 2012\Operations Manager\Console\SD
 # Checking Parameter Values.
 if (!$ManagementServer) {
 	Write-Host "A Management Server Name must be provided, i.e. - SCOMMS01.fabrikam.local."
-	exit 1;
+	exit 2;
 	}
 
 if (!$ManagementPackID) {
 	Write-Host "A Management Pack ID must be provided, i.e. - custom.service.monitor.mp01. The Management Pack ID can be the same as the Management Pack Name."
-	exit 1;
+	exit 2;
 	}
 
 if (!$ManagementPackName) {
 	Write-Host "A Management Pack Name must be provided, i.e. - custom.service.monitor.mp01. The Management Pack Name can be the same as the Management Pack ID."
-	exit 1;
+	exit 2;
 	}
 
 if (!$ManagementPackDisplayName) {
 	Write-Host "A Management Pack Display Name must be provided, i.e. - Custom Service Monitor MP01."
-	exit 1;
+	exit 2;
 	}
 
 if (!$ServiceName) {
 	Write-Host "The Name of the Service you want to Monitor must be provided, i.e. - wuauserv."
-	exit 1;
+	exit 2;
 	}
 
 if (!$ServiceDisplayName) {
 	Write-Host "The Display Name of the Service you want to Monitor must be provided, i.e. - Windows Update."
-	exit 1;
+	exit 2;
 	}		
 	
 if (!$CheckStartupType) {
 	Write-Host "A Check Startup Type Value for the Service Monitor must be provided, i.e. 'True' or 'False'."
-	exit 1;
+	exit 2;
 	}		
 	
 if (!$RegistryKey) {
 	Write-Host "A Registry Key for the Discovery must be provided, i.e. - CustomServiceMonitorWindowsUpdate."
-	exit 1;
+	exit 2;
 	}		
 		
 
@@ -89,6 +88,22 @@ Write-Host "ManagementPackDisplayName: " $ManagementPackDisplayName
 Write-Host "Connecting to the SCOM Management Group"
 $MG = New-Object Microsoft.EnterpriseManagement.ManagementGroup($ManagementServer)
 
+# Making sure that the Management Pack ID provided doesn't already exist in SCOM.
+Write-Host "Determining if Management Pack ID [$($ManagementPackID)] already exists"
+try {
+	$CheckManagementPackName = $MG.GetManagementPacks($ManagementPackID)[0]
+	If ($CheckManagementPackName.ToString().Length -gt "0") {
+		Write-Host "Management Pack ID [$($ManagementPackID)] was found in SCOM. Script will now exit."
+		exit 3;
+		}	
+	}
+catch {
+		[System.Management.Automation.MethodInvocationException] | Out-Null
+	}
+		
+Write-Host "Management Pack ID [$($ManagementPackID)] was not found in SCOM. Script will continue."
+
+# Starting the Process of Creating a New Management Pack.
 Write-Host "Creating new [Microsoft.EnterpriseManagement.Configuration.IO.ManagementPackFileStore] object"
 $MPStore = New-Object Microsoft.EnterpriseManagement.Configuration.IO.ManagementPackFileStore
 
