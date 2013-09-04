@@ -17,6 +17,7 @@
 #                   - Changed the AlertMessage variable to generate a unique GUID for itself while being declared. This was necessary
 #                     to ensure that any additional monitors added later on we're not forced to use the same Alert Message settings.
 #                   - Additional Notes added into Script.
+#                   - Cleaned up MP Query section to no longer require a ForEach loop to parse the results for the Custom Class.
 #
 #
 #
@@ -85,15 +86,9 @@ try {
 	try {
 		$MPQuery            = "DisplayName = '$($ManagementPackDisplayName)'"
 		$MPCriteria         = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackCriteria($MPQuery)
-		$FindManagementPack = $MG.GetManagementPacks($MPCriteria)
-		
-		# Retrieving the Custom Class and Management Pack ID (Name) of the Management Pack.
-		ForEach ($Item in $FindManagementPack) {
-			$CustomClass      += $Item.GetClasses() | Where-Object {$_.DisplayName -like "*Custom*"}
-			$ManagementPackID += $Item.Name
-			}
-		
-		If ($FindManagementPack.Count -eq "0") {
+		$MP                 = $MG.GetManagementPacks($MPCriteria)[0]
+
+		If ($MP.Count -eq "0") {
 		Write-Host "Management Pack - [$($ManagementPackDisplayName)] was NOT found in SCOM. Script will now exit."
 		exit 2;
 		}
@@ -104,8 +99,8 @@ try {
 	Write-Host "Management Pack - [$($ManagementPackDisplayName)] was found in SCOM. Script will continue."
 
 
-	# Retrieving the ManagementPack's BaseType [ManagementPackStore] to use as a Reference for Adding the Monitor to the Management Pack.
-	$MP = $MG.GetManagementPacks("$($ManagementPackID)")[0]
+	# Retrieving the Custom Class in the Management Pack.
+	$CustomClass = $MP.GetClasses()[0]
 
 
 	# Creating New Service Monitor
@@ -153,7 +148,7 @@ try {
 	# Specifying Service Monitoring Configuration
 	$MonitorConfig = "<ComputerName>`$Target/Host/Property[Type=`"Windows!Microsoft.Windows.Computer`"]/NetworkName$</ComputerName>
 	                  <ServiceName>$($ServiceName)</ServiceName>
-		          <CheckStartupType>$($CheckStartupType)</CheckStartupType>"
+					  <CheckStartupType>$($CheckStartupType)</CheckStartupType>"
 
 	$Monitor.set_Configuration($MonitorConfig)
 
