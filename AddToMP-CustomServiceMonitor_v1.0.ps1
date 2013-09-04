@@ -89,8 +89,8 @@ try {
 		$MP                 = $MG.GetManagementPacks($MPCriteria)[0]
 
 		If ($MP.Count -eq "0") {
-		Write-Host "Management Pack - [$($ManagementPackDisplayName)] was NOT found in SCOM. Script will now exit."
-		exit 2;
+		    Write-Host "Management Pack - [$($ManagementPackDisplayName)] was NOT found in SCOM. Script will now exit."
+		    exit 2;
 		}
 	}
 	catch {
