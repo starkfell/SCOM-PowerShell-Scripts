@@ -2,16 +2,22 @@
 #
 # Author(s):        Ryan Irujo
 # Inception:        09.02.2013
-# Last Modified:    09.02.2013
+# Last Modified:    09.03.2013
 #
 # Description:      This Script provides an automated method of adding Custom Service Monitors in SCOM to an existing
 #                   unsealed Management Pack.
 #
 #
 # Changes:          09.02.2013 - [R. Irujo]
-#                   - Modified the GetUnitMonitorTypes Query when creating a new Service Monitor to use the 
-#                     ManagementPackUnitMonitorTypeCriteria with a String Query to improve the performance
+#                   - Modified the GetUnitMonitorTypes Query when creating a new Service Monitor to use the
+#                     ManagementPackUnitMonitorTypeCritiera with a String Query to improve the performance 
 #                     of the script. This change will be applied to earlier related scripts.
+#
+#                   09.03.2013 - [R. Irujo]
+#                   - Changed the AlertMessage variable to generate a unique GUID for itself while being declared. This was necessary
+#                     to ensure that any additional monitors added later on we're not forced to use the same Alert Message settings.
+#                   - Additional Notes added into Script.
+#
 #
 #
 # Additional Notes: Mind the BACKTICKS throughout the Script! In particular, any XML changes that you may decide to add/remove/change
@@ -28,7 +34,7 @@ param($ManagementServer,$ManagementPackDisplayName,$ServiceName,$ServiceDisplayN
 try {
 
 	Clear-Host
-
+	
 	# Importing SCOM SDK DLL Files.
 	Import-Module "C:\Program Files\System Center 2012\Operations Manager\Console\SDK Binaries\Microsoft.EnterpriseManagement.Core.dll"
 	Import-Module "C:\Program Files\System Center 2012\Operations Manager\Console\SDK Binaries\Microsoft.EnterpriseManagement.OperationsManager.dll"
@@ -62,38 +68,46 @@ try {
 		}		
 
 
-	Write-Host "ManagementServer: "          $ManagementServer
-	Write-Host "ManagementPackDisplayName: " $ManagementPackDisplayName
+	Write-Host "Management Server:                    $($ManagementServer)"            
+	Write-Host "Management Pack Display Name:         $($ManagementPackDisplayName)" 
+	Write-Host "Service Name:                         $($ServiceName)"                 
+	Write-Host "Service Display Name:                 $($ServiceDisplayName)"         
+	Write-Host "Check Startup Type [True or False]:   $($CheckStartupType)`n"          
 
-
+	
 	Write-Host "Connecting to the SCOM Management Group"
 	$MG = New-Object Microsoft.EnterpriseManagement.ManagementGroup($ManagementServer)
 
-	# Making sure that the Management Pack exists in SCOM based upon its Display Name.
-	Write-Host "Determining if Management Pack - [$($ManagementPackDisplayName)] already exists"
+
+	# Determining if the Management Pack exists based upon its Display Name using a String Query.
+	Write-Host "Determining if Management Pack - [$($ManagementPackDisplayName)] already exists."
+	
 	try {
-		[string]$MPQuery    = "DisplayName = '$($ManagementPackDisplayName)'"
+		$MPQuery            = "DisplayName = '$($ManagementPackDisplayName)'"
 		$MPCriteria         = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackCriteria($MPQuery)
 		$FindManagementPack = $MG.GetManagementPacks($MPCriteria)
+		
+		# Retrieving the Custom Class and Management Pack ID (Name) of the Management Pack.
 		ForEach ($Item in $FindManagementPack) {
 			$CustomClass      += $Item.GetClasses() | Where-Object {$_.DisplayName -like "*Custom*"}
 			$ManagementPackID += $Item.Name
 			}
-			If ($FindManagementPack.ToString().Length -eq "0") {
-			Write-Host "Management Pack - [$($ManagementPackDisplayName)] was NOT found in SCOM. Script will now exit."
-			exit 2;
-			}
+		
+		If ($FindManagementPack.Count -eq "0") {
+		Write-Host "Management Pack - [$($ManagementPackDisplayName)] was NOT found in SCOM. Script will now exit."
+		exit 2;
 		}
+	}
 	catch {
 			[System.Management.Automation.MethodInvocationException] | Out-Null
-		}
-			
+		}			
 	Write-Host "Management Pack - [$($ManagementPackDisplayName)] was found in SCOM. Script will continue."
-	
-	Write-Host "Retrieving the ManagementPack's BaseType [ManagementPackStore] to use to add the Monitor too."
+
+
+	# Retrieving the ManagementPack's BaseType [ManagementPackStore] to use as a Reference for Adding the Monitor to the Management Pack.
 	$MP = $MG.GetManagementPacks("$($ManagementPackID)")[0]
-	
-	
+
+
 	# Creating New Service Monitor
 	$MonitorTypeQuery     = "Name = 'Microsoft.Windows.CheckNTServiceStateMonitorType'"
 	$MonitorCriteria      = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackUnitMonitorTypeCriteria($MonitorTypeQuery)
@@ -119,7 +133,7 @@ try {
 
 
 	# Configure Alert Settings - Alert Message
-	$AlertMessage = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackStringResource($MP, "Service.Monitor.Alert.Message")
+	$AlertMessage = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackStringResource($MP, ("CustomServiceMonitorAlertMessage_"+$ServiceName.ToString().Replace("$","_")+"_"+[Guid]::NewGuid().ToString().Replace("-","")))
 	$AlertMessage.set_DisplayName("The $($ServiceDisplayName) Service has Stopped")
 	$AlertMessage.set_Description("The $($ServiceDisplayName) Service has Stopped on {0}")
 	$Monitor.AlertSettings.set_AlertMessage($AlertMessage)
@@ -150,11 +164,9 @@ try {
 	$Monitor.ParentMonitorID = [Microsoft.EnterpriseManagement.Configuration.ManagementPackElementReference``1[Microsoft.EnterpriseManagement.Configuration.ManagementPackAggregateMonitor]]::op_implicit($ParentMonitor)
 
 
-	Write-Host "$($Monitor.DisplayName) - Service Monitor was successfully deployed to Management Pack - $($MP.DisplayName)"
-
-
 	# Applying changes to the Management Pack in the SCOM Database.	
 	try {
+		Write-Host "Attempting to Add [$($Monitor.DisplayName)] - Service Monitor to Management Pack - [$($MP.DisplayName)]"
 		$MP.AcceptChanges()
 		}
 	catch [System.Exception]
@@ -171,4 +183,4 @@ catch [System.Exception]
 			exit 2
 	}
 
-Write-Host "Deployment of Custom Service Monitor for [$($ServiceDisplayName)] to Management Pack - [$($ManagementPackDisplayName)] is Complete!"
+Write-Host "Deployment of Custom Service Monitor for [$($ServiceDisplayName)] to Management Pack - [$($ManagementPackDisplayName)] was Successful!"
