@@ -99,8 +99,8 @@ try {
 		}
 	}
 	catch {
-			[System.Management.Automation.MethodInvocationException] | Out-Null
-		}			
+		[System.Management.Automation.MethodInvocationException] | Out-Null
+	    }			
 	Write-Host "Management Pack - [$($ManagementPackDisplayName)] was found in SCOM. Script will continue."
 
 
