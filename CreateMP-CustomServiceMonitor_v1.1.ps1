@@ -12,9 +12,9 @@
 #                   - Parameterized Script and added logic to verify that Parameters are provided.
 #                   - Added function to replace all '$' with '_' for the Service Name in the $CustomClass and $Monitor variables to
 #                     support custom SQL Instances.
-#					          08.21.2013 - [R. Irujo]
-#					          - Removed Importing of the PowerShell OperationsManager Module and instead import the SDK DLL Files.
-#					          - Replaced most of the Where-Object filters with .NET Function calls to speed up the Script.
+#		    08.21.2013 - [R. Irujo]
+#		    - Removed Importing of the PowerShell OperationsManager Module and instead import the SDK DLL Files.
+#		    - Replaced most of the Where-Object filters with .NET Function calls to speed up the Script.
 #                   08.22.2013 - [R. Irujo]
 #                   - Added Check to Script to see if the Management Pack ID Provided already exists in SCOM.
 #                   08.23.2013 - [R. Irujo]
@@ -109,7 +109,7 @@ try {
 		}
 	catch {
 			[System.Management.Automation.MethodInvocationException] | Out-Null
-		}
+	    }
 			
 	Write-Host "Management Pack ID [$($ManagementPackID)] was not found in SCOM. Script will continue."
 
@@ -151,8 +151,9 @@ try {
 	$CustomClassBase         = $MG.EntityTypes.GetClasses("Name='Microsoft.Windows.ComputerRole'")[0]
 	$CustomClass.Base        = $CustomClassBase
 	$CustomClass.Hosted      = $true
-	$CustomClass.DisplayName = "Custom Service Monitor - $($ServiceDisplayName), Registry Key - $($RegistryKey)"
-
+	#$CustomClass.DisplayName = "Custom Service Monitor - $($ServiceDisplayName), Registry Key - $($RegistryKey)"
+	$CustomClass.DisplayName = "$($ManagementPackDisplayName), Registry Key - $($RegistryKey)"
+	
 	Write-Host "$($CustomClass.DisplayName) Added to Management Pack [$($MP.DisplayName)]."
 
 
@@ -265,7 +266,7 @@ try {
 	# Specifying Service Monitoring Configuration
 	$MonitorConfig = "<ComputerName>`$Target/Host/Property[Type=`"Windows!Microsoft.Windows.Computer`"]/NetworkName$</ComputerName>
 	                  <ServiceName>$($ServiceName)</ServiceName>
-					  <CheckStartupType>$($CheckStartupType)</CheckStartupType>"
+			  <CheckStartupType>$($CheckStartupType)</CheckStartupType>"
 
 	$Monitor.set_Configuration($MonitorConfig)
 
