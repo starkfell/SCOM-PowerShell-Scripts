@@ -148,7 +148,7 @@ try {
 	# Specifying Service Monitoring Configuration
 	$MonitorConfig = "<ComputerName>`$Target/Host/Property[Type=`"Windows!Microsoft.Windows.Computer`"]/NetworkName$</ComputerName>
 	                  <ServiceName>$($ServiceName)</ServiceName>
-					  <CheckStartupType>$($CheckStartupType)</CheckStartupType>"
+		          <CheckStartupType>$($CheckStartupType)</CheckStartupType>"
 
 	$Monitor.set_Configuration($MonitorConfig)
 
