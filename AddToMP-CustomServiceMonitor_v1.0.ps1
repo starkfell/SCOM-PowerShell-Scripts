@@ -103,12 +103,12 @@ try {
 	
 	Foreach ($Item in $ServiceMonitorCheck) {
 		If ($Item.DisplayName -eq $ServiceDisplayName) {
-			Write-Host "[$($ServiceDisplayName)] Service already exists in [$($ManagementPackDisplayName)]. Script will not exit"
+			Write-Host "[$($ServiceDisplayName)] - Service Monitor already exists in [$($ManagementPackDisplayName)]. Script will not exit"
 			exit 2;
 		}
 	}
 
-	Write-Host "[$($ServiceDisplayName)] Service was not found in [$($ManagementPackDisplayName)]. Script will continue."
+	Write-Host "[$($ServiceDisplayName)] - Service Monitor was not found in [$($ManagementPackDisplayName)]. Script will continue."
 
 
 	# Retrieving the Custom Class in the Management Pack.
