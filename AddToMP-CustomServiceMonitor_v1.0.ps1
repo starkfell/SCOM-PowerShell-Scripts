@@ -2,7 +2,7 @@
 #
 # Author(s):        Ryan Irujo
 # Inception:        09.02.2013
-# Last Modified:    09.03.2013
+# Last Modified:    09.05.2013
 #
 # Description:      This Script provides an automated method of adding Custom Service Monitors in SCOM to an existing
 #                   unsealed Management Pack.
@@ -19,6 +19,9 @@
 #                   - Additional Notes added into Script.
 #                   - Cleaned up MP Query section to no longer require a ForEach loop to parse the results for the Custom Class.
 #
+#                   09.05.2013 - [R. Irujo]
+#                   - Added a check to see if the Service Monitor to be added already exists in the Management Pack.
+#                   - Removed Try-Catch Block from section that determines if the Management Pack already exists.
 #
 #
 # Additional Notes: Mind the BACKTICKS throughout the Script! In particular, any XML changes that you may decide to add/remove/change
@@ -83,20 +86,29 @@ try {
 	# Determining if the Management Pack exists based upon its Display Name using a String Query.
 	Write-Host "Determining if Management Pack - [$($ManagementPackDisplayName)] already exists."
 	
-	try {
-		$MPQuery            = "DisplayName = '$($ManagementPackDisplayName)'"
-		$MPCriteria         = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackCriteria($MPQuery)
-		$MP                 = $MG.GetManagementPacks($MPCriteria)[0]
+	$MPQuery            = "DisplayName = '$($ManagementPackDisplayName)'"
+	$MPCriteria         = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackCriteria($MPQuery)
+	$MP                 = $MG.GetManagementPacks($MPCriteria)[0]
+	
+	If ($MP.Count -eq "0") {
+		Write-Host "Management Pack - [$($ManagementPackDisplayName)] was NOT found in SCOM. Script will now exit."
+		exit 2;
+	}
 
-		If ($MP.Count -eq "0") {
-		    Write-Host "Management Pack - [$($ManagementPackDisplayName)] was NOT found in SCOM. Script will now exit."
-		    exit 2;
+	Write-Host "Management Pack - [$($ManagementPackDisplayName)] was found in SCOM. Script will continue."
+
+
+	# Determining if the Service Monitor already exists in the Management Pack based upon its Name.
+    	$ServiceMonitorCheck = $MP.GetMonitors()
+	
+	Foreach ($Item in $ServiceMonitorCheck) {
+		If ($Item.DisplayName -eq $ServiceDisplayName) {
+			Write-Host "[$($ServiceDisplayName)] Service already exists in [$($ManagementPackDisplayName)]. Script will not exit"
+			exit 2;
 		}
 	}
-	catch {
-		[System.Management.Automation.MethodInvocationException] | Out-Null
-	    }			
-	Write-Host "Management Pack - [$($ManagementPackDisplayName)] was found in SCOM. Script will continue."
+
+	Write-Host "[$($ServiceDisplayName)] Service was not found in [$($ManagementPackDisplayName)]. Script will continue."
 
 
 	# Retrieving the Custom Class in the Management Pack.
@@ -148,7 +160,7 @@ try {
 	# Specifying Service Monitoring Configuration
 	$MonitorConfig = "<ComputerName>`$Target/Host/Property[Type=`"Windows!Microsoft.Windows.Computer`"]/NetworkName$</ComputerName>
 	                  <ServiceName>$($ServiceName)</ServiceName>
-		          <CheckStartupType>$($CheckStartupType)</CheckStartupType>"
+			  <CheckStartupType>$($CheckStartupType)</CheckStartupType>"
 
 	$Monitor.set_Configuration($MonitorConfig)
 
