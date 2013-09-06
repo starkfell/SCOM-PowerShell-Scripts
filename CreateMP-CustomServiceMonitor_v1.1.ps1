@@ -298,4 +298,4 @@ catch [System.Exception]
 			exit 2
 	}
 
-Write-Host "Deployment of Custom Service Monitor for [$($ServiceDisplayName)] and New Management Pack - [$($ManagementPackDisplayName)] is Complete!"
+Write-Host "Deployment of Custom Service Monitor for [$($ServiceDisplayName)] and New Management Pack - [$($ManagementPackDisplayName)] Completed Successfully!"
