@@ -2,7 +2,7 @@
 #
 # Author(s):        Ryan Irujo
 # Inception:        08.18.2013
-# Last Modified:    09.03.2013
+# Last Modified:    09.22.2013
 #
 # Description:      This Script provides an automated method of creating Service Monitors in SCOM that are discovered
 #                   by using Filtered Registry Key Discoveries.
@@ -12,7 +12,7 @@
 #                   - Parameterized Script and added logic to verify that Parameters are provided.
 #                   - Added function to replace all '$' with '_' for the Service Name in the $CustomClass and $Monitor variables to
 #                     support custom SQL Instances.
-#		    08.21.2013 - [R. Irujo]
+#	            08.21.2013 - [R. Irujo]
 #		    - Removed Importing of the PowerShell OperationsManager Module and instead import the SDK DLL Files.
 #		    - Replaced most of the Where-Object filters with .NET Function calls to speed up the Script.
 #                   08.22.2013 - [R. Irujo]
@@ -24,6 +24,11 @@
 #                     to ensure that any additional monitors added later on we're not forced to use the same Alert Message settings.
 #                   - Modified the GetUnitMonitorTypes Query when creating a new Service Monitor to use the ManagementPackUnitMonitorTypeCritiera 
 #                     with a String Query to improve the performance of the script.
+#                   09.22.2013 - [R. Irujo]
+#                   - Cleaned up previously commented out Code.
+#                   - Output results have been cleaned up to include all relevant items in Brackets.
+#                   - Cleaned up Try-Catch Block during Management Pack ID check.
+#
 #
 #
 # Additional Notes: Mind the BACKTICKS throughout the Script! In particular, any XML changes that you may decide to add/remove/change
@@ -105,13 +110,13 @@ try {
 		If ($CheckManagementPackName.ToString().Length -gt "0") {
 			Write-Host "Management Pack ID [$($ManagementPackID)] was found in SCOM. Script will now exit."
 			exit 2;
-			}	
+			}
 		}
-	catch {
-			[System.Management.Automation.MethodInvocationException] | Out-Null
-	    }
-			
-	Write-Host "Management Pack ID [$($ManagementPackID)] was not found in SCOM. Script will continue."
+	catch [System.Management.Automation.MethodInvocationException]
+		{
+			Write-Host "Management Pack ID [$($ManagementPackID)] was not found in SCOM. Script will continue."
+		}
+
 
 	# Starting the Process of Creating a New Management Pack.
 	Write-Host "Creating new [Microsoft.EnterpriseManagement.Configuration.IO.ManagementPackFileStore] object"
@@ -151,10 +156,9 @@ try {
 	$CustomClassBase         = $MG.EntityTypes.GetClasses("Name='Microsoft.Windows.ComputerRole'")[0]
 	$CustomClass.Base        = $CustomClassBase
 	$CustomClass.Hosted      = $true
-	#$CustomClass.DisplayName = "Custom Service Monitor - $($ServiceDisplayName), Registry Key - $($RegistryKey)"
 	$CustomClass.DisplayName = "$($ManagementPackDisplayName), Registry Key - $($RegistryKey)"
 	
-	Write-Host "$($CustomClass.DisplayName) Added to Management Pack [$($MP.DisplayName)]."
+	Write-Host "Custom Class - [$($CustomClass.DisplayName)] Added to Management Pack - [$($MP.DisplayName)]."
 
 
 	# Create Discoveries - <Discoveries> - XML Portion
@@ -218,7 +222,7 @@ try {
 	$DSModule.Configuration   = $DataSourceConfiguration
 	$Discovery.DataSource     = $DSModule
 
-	Write-Host "Discovery Configuration was successfully deployed to Management Pack - $($MP.DisplayName)"
+	Write-Host "Discovery Configuration for Registry Key: [$($RegistryKey)] was successfully deployed to Management Pack - [$($MP.DisplayName)]"
 
 
 	# Creating New Service Monitor
@@ -277,7 +281,7 @@ try {
 	$Monitor.ParentMonitorID = [Microsoft.EnterpriseManagement.Configuration.ManagementPackElementReference``1[Microsoft.EnterpriseManagement.Configuration.ManagementPackAggregateMonitor]]::op_implicit($ParentMonitor)
 
 
-	Write-Host "$($Monitor.DisplayName) - Service Monitor was successfully deployed to Management Pack - $($MP.DisplayName)"
+	Write-Host "[$($Monitor.DisplayName)] - Service Monitor was successfully deployed to Management Pack - [$($MP.DisplayName)]"
 
 
 	# Applying changes to the Management Pack in the SCOM Database.	
