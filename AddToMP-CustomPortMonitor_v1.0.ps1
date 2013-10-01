@@ -2,7 +2,7 @@
 #
 # Author(s):        Ryan Irujo
 # Inception:        09.22.2013
-# Last Modified:    09.27.2013
+# Last Modified:    09.29.2013
 #
 # Description:      Code is in progress.....currently non-functional.
 #
@@ -13,7 +13,7 @@
 
 param($ManagementServer,$ManagementPackDisplayName,$ServiceName,$ServiceDisplayName,$CheckStartupType)
 
-$ManagementServer           = "<Management_Server_Goes_Here>"
+$ManagementServer           = "SCOMMS223.scom.local"
 $ManagementPackDisplayName  = "Custom Service Monitors - Base OS"
 $ServiceName                = "RemoteRegistry"
 $ServiceDisplayName         = "Remote Registry"
@@ -136,7 +136,7 @@ try {
 	$TCPPortCheckComputersGroupCustomClass.Hosted      = $false
 	$TCPPortCheckComputersGroupCustomClass.DisplayName = "$($ManagementPackDisplayName), Registry Key - $($RegistryKey) - TCP Port Check Watcher Computers Group"
 	
-	# Creating new Relationship Type
+	# Creating new Relationship Class Type
 	$TCPPortRelationshipClass             = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackRelationship($MP,("TCPPortCheck_"+$Port.ToString().Replace("$","_")+"_"+[Guid]::NewGuid().ToString().Replace("-","")+"_Group_Contains_"+$TCPPortCheckCustomClass),"Public")
 	$TCPPortRelationshipClassCriteria     = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackRelationshipCriteria("Name='System.Containment'")
 	$TCPPortRelationshipClassBase         = $MG.EntityTypes.GetRelationshipClasses($TCPPortRelationshipClassCriteria)[0]
@@ -146,9 +146,23 @@ try {
 	$TCPPortRelationshipClass.Source      = $TCPPortRelationshipSourceEndpoint
 	$TCPPortRelationshipClass.Target      = $TCPPortRelationshipTargetEndpoint
 	
+	# Creating new Data Source Module Type
+	$TCPPortCheckDataSourceModule                    = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackDataSourceModuleType($MP,($TCPPortCheckCustomClass.ToString()+"_TCPPortCheckDataSource"),"Public")
 	
-	
-	
+	# Creating Data Source Collection for Data Source Module
+	$TCPPortCheckDataSourceCollection                = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackDataSourceModule($TCPPortCheckDataSourceModule,"Scheduler")
+	$TCPPortCheckDataSourceCollection.TypeID         = $MG.GetMonitoringModuleTypes("System.Scheduler")[0]
+	$TCPPortCheckDataSourceCollectionConfiguration   = "<Scheduler><SimpleReccuringSchedule><Interval Unit=`"Seconds`">120</Interval></SimpleReccuringSchedule><ExcludeDates /></Scheduler>"
+	$TCPPortCheckDataSourceCollection.Configuration  = $TCPPortCheckDataSourceCollectionConfiguration
+
+	# Creating Probe Action Collection for Data Source Module
+    $TCPPortCheckProbeActionCollection               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackProbeActionModule($TCPPortCheckDataSourceModule,"Probe")
+	$TCPPortCheckProbeActionCollection.TypeID        = $MG.GetMonitoringModuleTypes("Microsoft.SystemCenter.SyntheticTransactions.TCPPortCheckProbe")[0]
+	$TCPPortCheckProbeActionCollectionConfiguration  = "<ServerName>SCOMDEVSRV</ServerName><Port>80</Port>"
+	$TCPPortCheckProbeActionCollection.Configuration = $TCPPortCheckProbeActionCollectionConfiguration
+
+
+	#$TCPPortCheckDataSourceModule.set_OutputType([Microsoft.EnterpriseManagement.Configuration.ManagementPackElementReference``1[Microsoft.EnterpriseManagement.Configuration.ManagementPackProbeActionModule]]::op_implicit($TCPPortCheckProbeActionCollection))
 
 	# Creating New Port Monitor
 	$PortMonitorTypeQuery = "Name = 'Microsoft.SystemCenter.SyntheticTransactions.TCPPortCheckProbe'"
