@@ -2,7 +2,7 @@
 #
 # Author(s):        Ryan Irujo
 # Inception:        09.22.2013
-# Last Modified:    09.29.2013
+# Last Modified:    10.08.2013
 #
 # Description:      Code is in progress.....currently non-functional.
 #
@@ -140,9 +140,6 @@ try {
 		}
 
 
-
-
-
 	# Creating TCP Port Custom Classes - TCPPortCheckPerspective
 	$TCPPortCheckCustomClass             = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackClass($MP,("TCPPortCheck_"+$Port.ToString().Replace("$","_")+"_"+[Guid]::NewGuid().ToString().Replace("-","")),"Public")
 	$TCPPortCheckCustomClassBase         = $MG.EntityTypes.GetClasses("Name='Microsoft.SystemCenter.SyntheticTransactions.TCPPortCheckPerspective'")[0]
@@ -181,8 +178,6 @@ try {
 	$TCPPortRelationshipClass.Target      = $TCPPortRelationshipTarget
 
 	
-	
-	
 	# Creating a Module Composition Node Type with the ID of Probe.
 	$TCPPortCheckProbeModuleCompositionNodeType        = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleCompositionNodeType
 	$TCPPortCheckProbeModuleCompositionNodeType.ID     = "Probe"
@@ -191,65 +186,211 @@ try {
 	$TCPPortCheckSchedulerModuleCompositionNodeType    = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleCompositionNodeType
 	$TCPPortCheckSchedulerModuleCompositionNodeType.ID = "Scheduler"	
 	
-	
-	# Creating new Data Source Module Type
+	# Creating new Data Source Module Type.
 	$TCPPortCheckDataSourceModule                    = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackDataSourceModuleType($MP,($TCPPortCheckCustomClass.ToString()+"_TCPPortCheckDataSource"),"Public")
 	$TCPPortCheckDataSourceModuleOutputTypeSourceMP  = $MG.GetManagementPacks($SyntheticLibrary)[0] 
 	$TCPPortCheckDataSourceModuleOutputType          = $TCPPortCheckDataSourceModuleOutputTypeSourceMP.GetDataType("Microsoft.SystemCenter.SyntheticTransactions.TCPPortCheckData")
 	$TCPPortCheckDataSourceModule.set_OutputType([Microsoft.EnterpriseManagement.Configuration.ManagementPackElementReference``1[Microsoft.EnterpriseManagement.Configuration.ManagementPackDataType]]::op_implicit($TCPPortCheckDataSourceModuleOutputType))
 	
+	# Creating a Data Source Collection for the Data Source Module Type.
 	$TCPPortCheckDataSourceModuleTypeReference                = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($TCPPortCheckDataSourceModule,"Scheduler")
 	$TCPPortCheckDataSourceModuleTypeReference.TypeID         = $MG.GetMonitoringModuleTypes("System.Scheduler")[0]
 	$TCPPortCheckDataSourceModuleTypeReferenceConfiguration   = "<Scheduler><SimpleReccuringSchedule><Interval Unit=`"Seconds`">120</Interval></SimpleReccuringSchedule><ExcludeDates /></Scheduler>"
 	$TCPPortCheckDataSourceModuleTypeReference.Configuration  = $TCPPortCheckDataSourceModuleTypeReferenceConfiguration
 	
+	# Creating a Probe Action Collection for the Data Source Module Type.
 	$TCPPortCheckProbeActionModuleTypeReference               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($TCPPortCheckDataSourceModule,"Probe")
 	$TCPPortCheckProbeActionModuleTypeReference.TypeID        = $MG.GetMonitoringModuleTypes("Microsoft.SystemCenter.SyntheticTransactions.TCPPortCheckProbe")[0]
 	$TCPPortCheckProbeActionModuleTypeReferenceConfiguration  = "<ServerName>SCOMDEVSRV</ServerName><Port>81</Port>"
 	$TCPPortCheckProbeActionModuleTypeReference.Configuration = $TCPPortCheckProbeActionModuleTypeReferenceConfiguration
 	
-	
+	# Adding the Data Source Collection & Probe Action Collection to the Data Source Module Type.
 	$TCPPortCheckDataSourceModule.DataSourceCollection.Add($TCPPortCheckDataSourceModuleTypeReference)
 	$TCPPortCheckDataSourceModule.ProbeActionCollection.Add($TCPPortCheckProbeActionModuleTypeReference)
 	
+	# Adding the 'Probe' Module Composition Node Type as a Node for the Data Source Module Type.
 	$TCPPortCheckDataSourceModule.Node               = $TCPPortCheckProbeModuleCompositionNodeType
+	
+	# Adding the 'Scheduler' Module Composition Node Type as a Node Collection for the Data Source Module Type.
 	$TCPPortCheckDataSourceModule.Node.NodeCollection.Add($TCPPortCheckSchedulerModuleCompositionNodeType)
 	
-	
-	
-	#$TCPPortCheckDataSourceModule.Node               = $TCPPortCheckProbeModuleCompositionNodeType
-	#$TCPPortCheckDataSourceModule.Node.NodeCollection.Add($TCPPortCheckSchedulerModuleCompositionNodeType)
-	
-	<## Creating Data Source Collection for Data Source Module
-	$TCPPortCheckDataSourceCollection                = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackDataSourceModule($TCPPortCheckDataSourceModule,"Scheduler")
-	$TCPPortCheckDataSourceCollection.TypeID         = $MG.GetMonitoringModuleTypes("System.Scheduler")[0]
-	$TCPPortCheckDataSourceCollectionConfiguration   = "<Scheduler><SimpleReccuringSchedule><Interval Unit=`"Seconds`">120</Interval></SimpleReccuringSchedule><ExcludeDates /></Scheduler>"
-	$TCPPortCheckDataSourceCollection.Configuration  = $TCPPortCheckDataSourceCollectionConfiguration
-	
-	
-	# Creating Probe Action Collection for Data Source Module
-    $TCPPortCheckProbeActionCollection               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackProbeActionModule($TCPPortCheckDataSourceModule,"Probe")
-	$TCPPortCheckProbeActionCollection.TypeID        = $MG.GetMonitoringModuleTypes("Microsoft.SystemCenter.SyntheticTransactions.TCPPortCheckProbe")[0]
-	$TCPPortCheckProbeActionCollectionConfiguration  = "<ServerName>SCOMDEVSRV</ServerName><Port>81</Port>"
-	$TCPPortCheckProbeActionCollection.Configuration = $TCPPortCheckProbeActionCollectionConfiguration
-	
 
-	$TCPPortCheckDataSourceModule.Node               = $TCPPortCheckProbeModuleCompositionNodeType
-	$TCPPortCheckDataSourceModule.Node.NodeCollection.Add($TCPPortCheckSchedulerModuleCompositionNodeType)
 
-	#>
-
-	#$TCPPortCheckDataSourceModule.ProbeActionCollection.Add([Microsoft.EnterpriseManagement.Configuration.ManagementPackSubElementCollection``1[Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference]]$TCPPortCheckProbeActionCollection)
-	#$TCPPortCheckDataSourceModule.ProbeActionCollection.Add([Microsoft.EnterpriseManagement.Configuration.ManagementPackSubElementCollection``1[Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference]]$TCPPortCheckProbeActionTypeReference)
-	#$TCPPortCheckProbeActionTypeReference = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($TCPPortCheckDataSourceModule,"ProbeRef")
-	#$TCPPortCheckDataSourceModule.set_OutputType([Microsoft.EnterpriseManagement.Configuration.ManagementPackElementReference``1[Microsoft.EnterpriseManagement.Configuration.ManagementPackDataType]]::op_implicit($TCPPortCheckDataSourceModuleOutputType))
-	#$TCPPortCheckDataSourceModule.CreateNavigator()
-	#$TCPPortCheckDataSourceModuleOutputTypeSourceMP  = $MG.GetManagementPacks($SyntheticLibrary)[0]  
-	#$TCPPortCheckDataSourceModuleOutputType          = $TCPPortCheckDataSourceModuleOutputTypeSourceMP.GetDataType("Microsoft.SystemCenter.SyntheticTransactions.TCPPortCheckData")
-	#$TCPPortCheckDataSourceModule.set_OutputType([Microsoft.EnterpriseManagement.Configuration.ManagementPackElementReference``1[Microsoft.EnterpriseManagement.Configuration.ManagementPackDataType]]::op_implicit($TCPPortCheckDataSourceModuleOutputType))
-	#$TCPPortCheckDataSourceModuleImplementation      = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackDataType(
-	#$TCPPortCheckDataSourceModuleOutputType          = $MG.GetMonitoringModuleTypes("Microsoft.SystemCenter.SyntheticTransactions.TCPPortCheckProbe")[0]
+	# <---------- Creating new Unit Monitor Type - [TimeOut] ---------->
+	$UnitMonitorTypeTimeOut = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackUnitMonitorType($MP,($TCPPortCheckCustomClass.ToString()+"_TimeOut"),"Public")
 	
+	# Creating Data Source for [TimeOut] Unit Monitor Type.
+	$UnitMonitorTypeTimeOutDataSource        = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($UnitMonitorTypeTimeOut,"DS1")
+	$UnitMonitorTypeTimeOutDataSource.TypeID = $TCPPortCheckDataSourceModule
+	
+	# Adding Data Source to [TimeOut] Unit Monitor Type.
+	$UnitMonitorTypeTimeOut.DataSourceCollection.Add($UnitMonitorTypeTimeOutDataSource)
+	
+	# Creating Monitor Type States for [TimeOut] Unit Monitor Type.
+	$TimeOut_MonitorTypeState_TimeOutFailure   = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeState($UnitMonitorTypeTimeOut,"TimeOutFailure")
+	$TimeOut_MonitorTypeState_NoTimeOutFailure = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeState($UnitMonitorTypeTimeOut,"NoTimeOutFailure")
+
+	# Adding Monitor Type States to [TimeOut] Unit Monitor Type.
+	$UnitMonitorTypeTimeOut.MonitorTypeStateCollection.Add($TimeOut_MonitorTypeState_TimeOutFailure)
+	$UnitMonitorTypeTimeOut.MonitorTypeStateCollection.Add($TimeOut_MonitorTypeState_NoTimeOutFailure)
+	
+	# Creating Condition Detection - [TimeOutFailure] - for [TimeOut] Unit Monitor Type.
+	$CD_TimeOutFailure               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($UnitMonitorTypeTimeOut,"CDTimeOutFailure")
+	$CD_TimeOutFailure.TypeID        = $MG.GetMonitoringModuleTypes("System.ExpressionFilter")[0]
+	$CD_TimeOutFailure.Configuration = "<Expression>
+                						  <SimpleExpression>
+                  							<ValueExpression>
+                   							  <XPathQuery Type=`"UnsignedInteger`">StatusCode</XPathQuery>
+                 							</ValueExpression>
+                  							<Operator>Equal</Operator>
+                  							<ValueExpression>
+                    						  <Value Type=`"UnsignedInteger`">2147952460</Value>
+                  							</ValueExpression>
+                						  </SimpleExpression>
+              							</Expression>"
+
+	# Creating Condition Detection - [NoTimeOutFailure] - for [TimeOut] Unit Monitor Type.
+	$CD_NoTimeOutFailure               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($UnitMonitorTypeTimeOut,"CDNoTimeOutFailure")
+	$CD_NoTimeOutFailure.TypeID        = $MG.GetMonitoringModuleTypes("System.ExpressionFilter")[0]
+	$CD_NoTimeOutFailure.Configuration = "<Expression>
+                						    <SimpleExpression>
+                  							  <ValueExpression>
+                   							    <XPathQuery Type=`"UnsignedInteger`">StatusCode</XPathQuery>
+                 							  </ValueExpression>
+                  							  <Operator>NotEqual</Operator>
+                  							  <ValueExpression>
+                    						    <Value Type=`"UnsignedInteger`">2147952460</Value>
+                  							  </ValueExpression>
+                						    </SimpleExpression>
+              							  </Expression>"
+
+	# Adding Condition Detection - [TimeOutFailure] - to [TimeOut] Unit Monitor Type.
+	$UnitMonitorTypeTimeOut.ConditionDetectionCollection.Add($CD_TimeOutFailure)
+
+	# Adding Condition Detection - [NoTimeOutFailure] - to [TimeOut] Unit Monitor Type.
+	$UnitMonitorTypeTimeOut.ConditionDetectionCollection.Add($CD_NoTimeOutFailure)
+
+	# Creating a Module Composition Node Type for Regular Detection [TimeOut] Failure.
+	$RD_TimeOutFailureModuleCompositionNodeType       = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleCompositionNodeType
+	$RD_TimeOutFailureModuleCompositionNodeType.ID    = "CDTimeOutFailure"
+
+	# Creating a Module Composition Node Type for Regular Detection [NoTimeOut] Failure.
+	$RD_NoTimeOutFailureModuleCompositionNodeType     = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleCompositionNodeType
+	$RD_NoTimeOutFailureModuleCompositionNodeType.ID  = "CDNoTimeOutFailure"
+
+	# Creating a Module Composition Node Type for Data Source of the [TimeOut] Unit Monitor Type
+	$RD_TimeOutDataSourceModuleCompositionNodeType    = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleCompositionNodeType
+	$RD_TimeOutDataSourceModuleCompositionNodeType.ID = "DS1"
+
+	# Creating Regular Detection - [TimeOutFailure] - for [TimeOut] Unit Monitor Type.
+	$RD_TimeOutFailure                    = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeDetection
+	$RD_TimeOutFailure.MonitorTypeStateID = "TimeOutFailure"
+	$RD_TimeOutFailure.Node               = $RD_TimeOutFailureModuleCompositionNodeType
+	$RD_TimeOutFailure.Node.NodeCollection.Add($RD_TimeOutDataSourceModuleCompositionNodeType)
+
+	# Creating Regular Detection - [NoTimeOutFailure] - for [TimeOut] Unit Monitor Type.
+	$RD_NoTimeOutFailure                    = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeDetection
+	$RD_NoTimeOutFailure.MonitorTypeStateID = "NoTimeOutFailure"
+	$RD_NoTimeOutFailure.Node               = $RD_NoTimeOutFailureModuleCompositionNodeType
+	$RD_NoTimeOutFailure.Node.NodeCollection.Add($RD_TimeOutDataSourceModuleCompositionNodeType)
+
+	# Adding Regular Detection - [TimeOutFailure] - to [TimeOut] Unit Monitor Type.
+	$UnitMonitorTypeTimeOut.RegularDetectionCollection.Add($RD_TimeOutFailure)
+	
+	# Adding Regular Detection - [NoTimeOutFailure] - to [TimeOut] Unit Monitor Type.
+	$UnitMonitorTypeTimeOut.RegularDetectionCollection.Add($RD_NoTimeOutFailure)
+
+
+
+	# <---------- Creating new Unit Monitor Type - [ConnectionRefused] ---------->
+	$UnitMonitorTypeConnectionRefused = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackUnitMonitorType($MP,($TCPPortCheckCustomClass.ToString()+"_ConnectionRefused"),"Public")
+	
+	# Creating Data Source for [ConnectionRefused] Unit Monitor Type.
+	$UnitMonitorTypeConnectionRefusedDataSource        = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($UnitMonitorTypeConnectionRefused,"DS1")
+	$UnitMonitorTypeConnectionRefusedDataSource.TypeID = $TCPPortCheckDataSourceModule
+	
+	# Adding Data Source to [ConnectionRefused] Unit Monitor Type.
+	$UnitMonitorTypeConnectionRefused.DataSourceCollection.Add($UnitMonitorTypeConnectionRefusedDataSource)
+	
+	# Creating Monitor Type States for [ConnectionRefused] Unit Monitor Type.
+	$ConnectionRefused_MonitorTypeState_ConnectionRefusedFailure   = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeState($UnitMonitorTypeConnectionRefused,"ConnectionRefusedFailure")
+	$ConnectionRefused_MonitorTypeState_NoConnectionRefusedFailure = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeState($UnitMonitorTypeConnectionRefused,"NoConnectionRefusedFailure")
+
+	# Adding Monitor Type States to [ConnectionRefused] Unit Monitor Type.
+	$UnitMonitorTypeConnectionRefused.MonitorTypeStateCollection.Add($ConnectionRefused_MonitorTypeState_ConnectionRefusedFailure)
+	$UnitMonitorTypeConnectionRefused.MonitorTypeStateCollection.Add($ConnectionRefused_MonitorTypeState_NoConnectionRefusedFailure)
+	
+	# Creating Condition Detection - [ConnectionRefusedFailure] - for [ConnectionRefused] Unit Monitor Type.
+	$CD_ConnectionRefusedFailure               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($UnitMonitorTypeConnectionRefused,"CDConnectionRefusedFailure")
+	$CD_ConnectionRefusedFailure.TypeID        = $MG.GetMonitoringModuleTypes("System.ExpressionFilter")[0]
+	$CD_ConnectionRefusedFailure.Configuration = "<Expression>
+                						  <SimpleExpression>
+                  							<ValueExpression>
+                   							  <XPathQuery Type=`"UnsignedInteger`">StatusCode</XPathQuery>
+                 							</ValueExpression>
+                  							<Operator>Equal</Operator>
+                  							<ValueExpression>
+                    						  <Value Type=`"UnsignedInteger`">2147952461</Value>
+                  							</ValueExpression>
+                						  </SimpleExpression>
+              							</Expression>"
+
+	# Creating Condition Detection - [NoConnectionRefusedFailure] - for [ConnectionRefused] Unit Monitor Type.
+	$CD_NoConnectionRefusedFailure               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($UnitMonitorTypeConnectionRefused,"CDNoConnectionRefusedFailure")
+	$CD_NoConnectionRefusedFailure.TypeID        = $MG.GetMonitoringModuleTypes("System.ExpressionFilter")[0]
+	$CD_NoConnectionRefusedFailure.Configuration = "<Expression>
+                						    <SimpleExpression>
+                  							  <ValueExpression>
+                   							    <XPathQuery Type=`"UnsignedInteger`">StatusCode</XPathQuery>
+                 							  </ValueExpression>
+                  							  <Operator>NotEqual</Operator>
+                  							  <ValueExpression>
+                    						    <Value Type=`"UnsignedInteger`">2147952461</Value>
+                  							  </ValueExpression>
+                						    </SimpleExpression>
+              							  </Expression>"
+
+	# Adding Condition Detection - [ConnectionRefusedFailure] - to [ConnectionRefused] Unit Monitor Type.
+	$UnitMonitorTypeConnectionRefused.ConditionDetectionCollection.Add($CD_ConnectionRefusedFailure)
+
+	# Adding Condition Detection - [NoConnectionRefusedFailure] - to [ConnectionRefused] Unit Monitor Type.
+	$UnitMonitorTypeConnectionRefused.ConditionDetectionCollection.Add($CD_NoConnectionRefusedFailure)
+
+	# Creating a Module Composition Node Type for Regular Detection [ConnectionRefused] Failure.
+	$RD_ConnectionRefusedFailureModuleCompositionNodeType       = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleCompositionNodeType
+	$RD_ConnectionRefusedFailureModuleCompositionNodeType.ID    = "CDConnectionRefusedFailure"
+
+	# Creating a Module Composition Node Type for Regular Detection [NoConnectionRefused] Failure.
+	$RD_NoConnectionRefusedFailureModuleCompositionNodeType     = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleCompositionNodeType
+	$RD_NoConnectionRefusedFailureModuleCompositionNodeType.ID  = "CDNoConnectionRefusedFailure"
+
+	# Creating a Module Composition Node Type for Data Source of the [ConnectionRefused] Unit Monitor Type
+	$RD_ConnectionRefusedDataSourceModuleCompositionNodeType    = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleCompositionNodeType
+	$RD_ConnectionRefusedDataSourceModuleCompositionNodeType.ID = "DS1"
+
+	# Creating Regular Detection - [ConnectionRefusedFailure] - for [ConnectionRefused] Unit Monitor Type.
+	$RD_ConnectionRefusedFailure                    = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeDetection
+	$RD_ConnectionRefusedFailure.MonitorTypeStateID = "ConnectionRefusedFailure"
+	$RD_ConnectionRefusedFailure.Node               = $RD_ConnectionRefusedFailureModuleCompositionNodeType
+	$RD_ConnectionRefusedFailure.Node.NodeCollection.Add($RD_ConnectionRefusedDataSourceModuleCompositionNodeType)
+
+	# Creating Regular Detection - [NoConnectionRefusedFailure] - for [ConnectionRefused] Unit Monitor Type.
+	$RD_NoConnectionRefusedFailure                    = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeDetection
+	$RD_NoConnectionRefusedFailure.MonitorTypeStateID = "NoConnectionRefusedFailure"
+	$RD_NoConnectionRefusedFailure.Node               = $RD_NoConnectionRefusedFailureModuleCompositionNodeType
+	$RD_NoConnectionRefusedFailure.Node.NodeCollection.Add($RD_ConnectionRefusedDataSourceModuleCompositionNodeType)
+
+	# Adding Regular Detection - [ConnectionRefusedFailure] - to [ConnectionRefused] Unit Monitor Type.
+	$UnitMonitorTypeConnectionRefused.RegularDetectionCollection.Add($RD_ConnectionRefusedFailure)
+	
+	# Adding Regular Detection - [NoConnectionRefusedFailure] - to [ConnectionRefused] Unit Monitor Type.
+	$UnitMonitorTypeConnectionRefused.RegularDetectionCollection.Add($RD_NoConnectionRefusedFailure)
+
+
+
+
+
+
 
 	<#
 	# Creating New Port Monitor
