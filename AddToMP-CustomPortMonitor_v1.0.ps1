@@ -7,9 +7,9 @@
 # Description:      Code is in progress.....currently non-functional.
 #
 #
-# Syntax:          ./AddToMP-CustomServiceMonitor_v1.0 <Management_Server> <Management_Pack_Display_Name> <Service_Name> <Service_Display_Name> <Check_Startup_Type_Value>
+# Syntax:          ./AddToMP-CustomPortMonitor_v1.0 <Management_Server> <Management_Pack_Display_Name> <Service_Name> <Service_Display_Name> <Check_Startup_Type_Value>
 #
-# Example:         ./AddToMP-CustomServiceMonitor_v1.0 SCOMMS01.fabrikam.local "Custom Service Monitors - Main MP" wuauserv "Windows Update" True
+# Example:         ./AddToMP-CustomPortMonitor_v1.0 SCOMMS01.fabrikam.local "Custom Service Monitors - Main MP" wuauserv "Windows Update" True
 
 param($ManagementServer,$ManagementPackDisplayName,$ServiceName,$ServiceDisplayName,$CheckStartupType)
 
@@ -213,10 +213,10 @@ try {
 	
 	# Adding the 'Scheduler' Module Composition Node Type as a Node Collection for the Data Source Module Type.
 	$TCPPortCheckDataSourceModule.Node.NodeCollection.Add($TCPPortCheckSchedulerModuleCompositionNodeType)
-	
 
 
-	# <---------- Creating new Unit Monitor Type - [TimeOut] ---------->
+
+	# ------------------------------ Creating New Unit Monitor Type [TimeOut] ------------------------------ #
 	$UnitMonitorTypeTimeOut = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackUnitMonitorType($MP,($TCPPortCheckCustomClass.ToString()+"_TimeOut"),"Public")
 	
 	# Creating Data Source for [TimeOut] Unit Monitor Type.
@@ -302,7 +302,7 @@ try {
 
 
 
-	# <---------- Creating new Unit Monitor Type - [ConnectionRefused] ---------->
+	# ------------------------------ Creating New Unit Monitor Type [ConnectionRefused] ------------------------------ #
 	$UnitMonitorTypeConnectionRefused = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackUnitMonitorType($MP,($TCPPortCheckCustomClass.ToString()+"_ConnectionRefused"),"Public")
 	
 	# Creating Data Source for [ConnectionRefused] Unit Monitor Type.
@@ -385,6 +385,179 @@ try {
 	
 	# Adding Regular Detection - [NoConnectionRefusedFailure] - to [ConnectionRefused] Unit Monitor Type.
 	$UnitMonitorTypeConnectionRefused.RegularDetectionCollection.Add($RD_NoConnectionRefusedFailure)
+
+
+
+	# ------------------------------ Creating New Unit Monitor Type [DNSResolution] ------------------------------ #
+	$UnitMonitorTypeDNSResolution = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackUnitMonitorType($MP,($TCPPortCheckCustomClass.ToString()+"_DNSResolution"),"Public")
+	
+	# Creating Data Source for [DNSResolution] Unit Monitor Type.
+	$UnitMonitorTypeDNSResolutionDataSource        = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($UnitMonitorTypeDNSResolution,"DS1")
+	$UnitMonitorTypeDNSResolutionDataSource.TypeID = $TCPPortCheckDataSourceModule
+	
+	# Adding Data Source to [DNSResolution] Unit Monitor Type.
+	$UnitMonitorTypeDNSResolution.DataSourceCollection.Add($UnitMonitorTypeDNSResolutionDataSource)
+	
+	# Creating Monitor Type States for [DNSResolution] Unit Monitor Type.
+	$DNSResolution_MonitorTypeState_DNSResolutionFailure   = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeState($UnitMonitorTypeDNSResolution,"DNSResolutionFailure")
+	$DNSResolution_MonitorTypeState_NoDNSResolutionFailure = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeState($UnitMonitorTypeDNSResolution,"NoDNSResolutionFailure")
+
+	# Adding Monitor Type States to [DNSResolution] Unit Monitor Type.
+	$UnitMonitorTypeDNSResolution.MonitorTypeStateCollection.Add($DNSResolution_MonitorTypeState_DNSResolutionFailure)
+	$UnitMonitorTypeDNSResolution.MonitorTypeStateCollection.Add($DNSResolution_MonitorTypeState_NoDNSResolutionFailure)
+	
+	# Creating Condition Detection - [DNSResolutionFailure] - for [DNSResolution] Unit Monitor Type.
+	$CD_DNSResolutionFailure               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($UnitMonitorTypeDNSResolution,"CDDNSResolutionFailure")
+	$CD_DNSResolutionFailure.TypeID        = $MG.GetMonitoringModuleTypes("System.ExpressionFilter")[0]
+	$CD_DNSResolutionFailure.Configuration = "<Expression>
+                						  <SimpleExpression>
+                  							<ValueExpression>
+                   							  <XPathQuery Type=`"UnsignedInteger`">StatusCode</XPathQuery>
+                 							</ValueExpression>
+                  							<Operator>Equal</Operator>
+                  							<ValueExpression>
+                    						  <Value Type=`"UnsignedInteger`">2147953401</Value>
+                  							</ValueExpression>
+                						  </SimpleExpression>
+              							</Expression>"
+
+	# Creating Condition Detection - [NoDNSResolutionFailure] - for [DNSResolution] Unit Monitor Type.
+	$CD_NoDNSResolutionFailure               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($UnitMonitorTypeDNSResolution,"CDNoDNSResolutionFailure")
+	$CD_NoDNSResolutionFailure.TypeID        = $MG.GetMonitoringModuleTypes("System.ExpressionFilter")[0]
+	$CD_NoDNSResolutionFailure.Configuration = "<Expression>
+                						    <SimpleExpression>
+                  							  <ValueExpression>
+                   							    <XPathQuery Type=`"UnsignedInteger`">StatusCode</XPathQuery>
+                 							  </ValueExpression>
+                  							  <Operator>NotEqual</Operator>
+                  							  <ValueExpression>
+                    						    <Value Type=`"UnsignedInteger`">2147953401</Value>
+                  							  </ValueExpression>
+                						    </SimpleExpression>
+              							  </Expression>"
+
+	# Adding Condition Detection - [DNSResolutionFailure] - to [DNSResolution] Unit Monitor Type.
+	$UnitMonitorTypeDNSResolution.ConditionDetectionCollection.Add($CD_DNSResolutionFailure)
+
+	# Adding Condition Detection - [NoDNSResolutionFailure] - to [DNSResolution] Unit Monitor Type.
+	$UnitMonitorTypeDNSResolution.ConditionDetectionCollection.Add($CD_NoDNSResolutionFailure)
+
+	# Creating a Module Composition Node Type for Regular Detection [DNSResolution] Failure.
+	$RD_DNSResolutionFailureModuleCompositionNodeType       = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleCompositionNodeType
+	$RD_DNSResolutionFailureModuleCompositionNodeType.ID    = "CDDNSResolutionFailure"
+
+	# Creating a Module Composition Node Type for Regular Detection [NoDNSResolution] Failure.
+	$RD_NoDNSResolutionFailureModuleCompositionNodeType     = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleCompositionNodeType
+	$RD_NoDNSResolutionFailureModuleCompositionNodeType.ID  = "CDNoDNSResolutionFailure"
+
+	# Creating a Module Composition Node Type for Data Source of the [DNSResolution] Unit Monitor Type
+	$RD_DNSResolutionDataSourceModuleCompositionNodeType    = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleCompositionNodeType
+	$RD_DNSResolutionDataSourceModuleCompositionNodeType.ID = "DS1"
+
+	# Creating Regular Detection - [DNSResolutionFailure] - for [DNSResolution] Unit Monitor Type.
+	$RD_DNSResolutionFailure                    = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeDetection
+	$RD_DNSResolutionFailure.MonitorTypeStateID = "DNSResolutionFailure"
+	$RD_DNSResolutionFailure.Node               = $RD_DNSResolutionFailureModuleCompositionNodeType
+	$RD_DNSResolutionFailure.Node.NodeCollection.Add($RD_DNSResolutionDataSourceModuleCompositionNodeType)
+
+	# Creating Regular Detection - [NoDNSResolutionFailure] - for [DNSResolution] Unit Monitor Type.
+	$RD_NoDNSResolutionFailure                    = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeDetection
+	$RD_NoDNSResolutionFailure.MonitorTypeStateID = "NoDNSResolutionFailure"
+	$RD_NoDNSResolutionFailure.Node               = $RD_NoDNSResolutionFailureModuleCompositionNodeType
+	$RD_NoDNSResolutionFailure.Node.NodeCollection.Add($RD_DNSResolutionDataSourceModuleCompositionNodeType)
+
+	# Adding Regular Detection - [DNSResolutionFailure] - to [DNSResolution] Unit Monitor Type.
+	$UnitMonitorTypeDNSResolution.RegularDetectionCollection.Add($RD_DNSResolutionFailure)
+	
+	# Adding Regular Detection - [NoDNSResolutionFailure] - to [DNSResolution] Unit Monitor Type.
+	$UnitMonitorTypeDNSResolution.RegularDetectionCollection.Add($RD_NoDNSResolutionFailure)
+
+
+
+	# ------------------------------ Creating New Unit Monitor Type [HostUnreachable] ------------------------------ #
+	$UnitMonitorTypeHostUnreachable = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackUnitMonitorType($MP,($TCPPortCheckCustomClass.ToString()+"_HostUnreachable"),"Public")
+	
+	# Creating Data Source for [HostUnreachable] Unit Monitor Type.
+	$UnitMonitorTypeHostUnreachableDataSource        = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($UnitMonitorTypeHostUnreachable,"DS1")
+	$UnitMonitorTypeHostUnreachableDataSource.TypeID = $TCPPortCheckDataSourceModule
+	
+	# Adding Data Source to [HostUnreachable] Unit Monitor Type.
+	$UnitMonitorTypeHostUnreachable.DataSourceCollection.Add($UnitMonitorTypeHostUnreachableDataSource)
+	
+	# Creating Monitor Type States for [HostUnreachable] Unit Monitor Type.
+	$HostUnreachable_MonitorTypeState_HostUnreachableFailure   = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeState($UnitMonitorTypeHostUnreachable,"HostUnreachableFailure")
+	$HostUnreachable_MonitorTypeState_NoHostUnreachableFailure = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeState($UnitMonitorTypeHostUnreachable,"NoHostUnreachableFailure")
+
+	# Adding Monitor Type States to [HostUnreachable] Unit Monitor Type.
+	$UnitMonitorTypeHostUnreachable.MonitorTypeStateCollection.Add($HostUnreachable_MonitorTypeState_HostUnreachableFailure)
+	$UnitMonitorTypeHostUnreachable.MonitorTypeStateCollection.Add($HostUnreachable_MonitorTypeState_NoHostUnreachableFailure)
+	
+	# Creating Condition Detection - [HostUnreachableFailure] - for [HostUnreachable] Unit Monitor Type.
+	$CD_HostUnreachableFailure               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($UnitMonitorTypeHostUnreachable,"CDHostUnreachableFailure")
+	$CD_HostUnreachableFailure.TypeID        = $MG.GetMonitoringModuleTypes("System.ExpressionFilter")[0]
+	$CD_HostUnreachableFailure.Configuration = "<Expression>
+                						  <SimpleExpression>
+                  							<ValueExpression>
+                   							  <XPathQuery Type=`"UnsignedInteger`">StatusCode</XPathQuery>
+                 							</ValueExpression>
+                  							<Operator>Equal</Operator>
+                  							<ValueExpression>
+                    						  <Value Type=`"UnsignedInteger`">2147952465</Value>
+                  							</ValueExpression>
+                						  </SimpleExpression>
+              							</Expression>"
+
+	# Creating Condition Detection - [NoHostUnreachableFailure] - for [HostUnreachable] Unit Monitor Type.
+	$CD_NoHostUnreachableFailure               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($UnitMonitorTypeHostUnreachable,"CDNoHostUnreachableFailure")
+	$CD_NoHostUnreachableFailure.TypeID        = $MG.GetMonitoringModuleTypes("System.ExpressionFilter")[0]
+	$CD_NoHostUnreachableFailure.Configuration = "<Expression>
+                						    <SimpleExpression>
+                  							  <ValueExpression>
+                   							    <XPathQuery Type=`"UnsignedInteger`">StatusCode</XPathQuery>
+                 							  </ValueExpression>
+                  							  <Operator>NotEqual</Operator>
+                  							  <ValueExpression>
+                    						    <Value Type=`"UnsignedInteger`">2147952465</Value>
+                  							  </ValueExpression>
+                						    </SimpleExpression>
+              							  </Expression>"
+
+	# Adding Condition Detection - [HostUnreachableFailure] - to [HostUnreachable] Unit Monitor Type.
+	$UnitMonitorTypeHostUnreachable.ConditionDetectionCollection.Add($CD_HostUnreachableFailure)
+
+	# Adding Condition Detection - [NoHostUnreachableFailure] - to [HostUnreachable] Unit Monitor Type.
+	$UnitMonitorTypeHostUnreachable.ConditionDetectionCollection.Add($CD_NoHostUnreachableFailure)
+
+	# Creating a Module Composition Node Type for Regular Detection [HostUnreachable] Failure.
+	$RD_HostUnreachableFailureModuleCompositionNodeType       = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleCompositionNodeType
+	$RD_HostUnreachableFailureModuleCompositionNodeType.ID    = "CDHostUnreachableFailure"
+
+	# Creating a Module Composition Node Type for Regular Detection [NoHostUnreachable] Failure.
+	$RD_NoHostUnreachableFailureModuleCompositionNodeType     = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleCompositionNodeType
+	$RD_NoHostUnreachableFailureModuleCompositionNodeType.ID  = "CDNoHostUnreachableFailure"
+
+	# Creating a Module Composition Node Type for Data Source of the [HostUnreachable] Unit Monitor Type
+	$RD_HostUnreachableDataSourceModuleCompositionNodeType    = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleCompositionNodeType
+	$RD_HostUnreachableDataSourceModuleCompositionNodeType.ID = "DS1"
+
+	# Creating Regular Detection - [HostUnreachableFailure] - for [HostUnreachable] Unit Monitor Type.
+	$RD_HostUnreachableFailure                    = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeDetection
+	$RD_HostUnreachableFailure.MonitorTypeStateID = "HostUnreachableFailure"
+	$RD_HostUnreachableFailure.Node               = $RD_HostUnreachableFailureModuleCompositionNodeType
+	$RD_HostUnreachableFailure.Node.NodeCollection.Add($RD_HostUnreachableDataSourceModuleCompositionNodeType)
+
+	# Creating Regular Detection - [NoHostUnreachableFailure] - for [HostUnreachable] Unit Monitor Type.
+	$RD_NoHostUnreachableFailure                    = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackMonitorTypeDetection
+	$RD_NoHostUnreachableFailure.MonitorTypeStateID = "NoHostUnreachableFailure"
+	$RD_NoHostUnreachableFailure.Node               = $RD_NoHostUnreachableFailureModuleCompositionNodeType
+	$RD_NoHostUnreachableFailure.Node.NodeCollection.Add($RD_HostUnreachableDataSourceModuleCompositionNodeType)
+
+	# Adding Regular Detection - [HostUnreachableFailure] - to [HostUnreachable] Unit Monitor Type.
+	$UnitMonitorTypeHostUnreachable.RegularDetectionCollection.Add($RD_HostUnreachableFailure)
+	
+	# Adding Regular Detection - [NoHostUnreachableFailure] - to [HostUnreachable] Unit Monitor Type.
+	$UnitMonitorTypeHostUnreachable.RegularDetectionCollection.Add($RD_NoHostUnreachableFailure)
+
 
 
 
