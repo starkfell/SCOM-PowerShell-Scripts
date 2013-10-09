@@ -559,7 +559,44 @@ try {
 	$UnitMonitorTypeHostUnreachable.RegularDetectionCollection.Add($RD_NoHostUnreachableFailure)
 
 
+	
+	
+	
+	
+	
+	# Creating a New Management Pack Discovery for the TCPPortCheckPerspectiveClass
+	$TCPPortCheckPerspectiveClassDiscovery             = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackDiscovery($MP,($TCPPortCheckCustomClass.ToString()+"_Discovery_Rule"))
+	$TCPPortCheckPerspectiveClassDiscovery.Category    = "Discovery"
+	$TCPPortCheckPerspectiveClassDiscovery.DisplayName = "Discovery - TCPPortCheckPerspectiveClass"
+	$TCPPortCheckPerspectiveClassDiscovery.Description = "Discovery for the Class - TCPPortCheckPerspectiveClass"
 
+	# Creating Discovery Target for the TCPPortCheckPerspectiveClass
+	$TCPPortCheckPerspectiveClassDiscoveryTarget  = $MG.EntityTypes.GetClasses("Name='Microsoft.Windows.Computer'")[0]
+	$TCPPortCheckPerspectiveClassDiscovery.Target = $TCPPortCheckPerspectiveClassDiscoveryTarget
+	
+	# Creating Discovery Class using the TCPPortCheckPerspectiveClass
+	$TCPPortCheckPerspectiveClass_DiscoveryClass = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackDiscoveryClass
+	$TCPPortCheckPerspectiveClass_DiscoveryClass.set_TypeID($TCPPortCheckCustomClass)
+	$TCPPortCheckPerspectiveClassDiscovery.DiscoveryClassCollection.Add($TCPPortCheckPerspectiveClass_DiscoveryClass)
+
+	# Creating Discovery Relationship using the TCPPortCheckPerspectiveClass
+	$TCPPortCheckPerspectiveClass_DiscoveryRelationship        = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackDiscoveryRelationship
+	$TCPPortCheckPerspectiveClass_DiscoveryRelationship_TypeID = $MG.EntityTypes.GetRelationshipClasses("Name='Microsoft.SystemCenter.SyntheticTransactions.ComputerHostsTCPPortCheckPerspective'")[0]
+	$TCPPortCheckPerspectiveClass_DiscoveryRelationship.set_TypeID($TCPPortCheckPerspectiveClass_DiscoveryRelationship_TypeID)
+	$TCPPortCheckPerspectiveClassDiscovery.DiscoveryRelationshipCollection.Add($TCPPortCheckPerspectiveClass_DiscoveryRelationship)
+
+	# Creating a DataSource for the Discovery of the TCPPortCheckPerspectiveClass
+	$TCPPortCheckPerspectiveClassDiscovery_DS               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackDataSourceModule($TCPPortCheckPerspectiveClassDiscovery,"DS")
+	$TCPPortCheckPerspectiveClassDiscovery_DS_ModuleType    = $MG.GetMonitoringModuleTypes("Microsoft.SystemCenter.SyntheticTransactions.PerspectiveDiscoveryDataSource")[0]
+	$TCPPortCheckPerspectiveClassDiscovery_DS_UniqueKey     = [Guid]::NewGuid().ToString()
+	$TCPPortCheckPerspectiveClassDiscovery_DS.TypeID        = [Microsoft.EnterpriseManagement.Configuration.ManagementPackDataSourceModuleType]$TCPPortCheckPerspectiveClassDiscovery_DS_ModuleType
+	$TCPPortCheckPerspectiveClassDiscovery_DS.Configuration = "<ClassId>`$MPElement[Name=`"$($TCPPortCheckCustomClass.Name)`"]$</ClassId>
+          													   <DisplayName>Test Port Monitor - Sandbox</DisplayName>
+          													   <WatcherComputersList>SCOMDEVSRV.scom.local</WatcherComputersList>
+         													   <UniquenessKey>$($TCPPortCheckPerspectiveClassDiscovery_DS_UniqueKey)</UniquenessKey>"
+
+
+	$TCPPortCheckPerspectiveClassDiscovery.DataSource    = $TCPPortCheckPerspectiveClassDiscovery_DS
 
 
 
