@@ -1,26 +1,25 @@
-#  --- [AddToMP-CustomPortMonitor_v1.1] PowerShell Script  ---
+#  --- [AddToMP-CustomPortMonitor_v1.0] PowerShell Script  ---
 #
 # Author(s):        Ryan Irujo
 # Inception:        09.22.2013
-# Last Modified:    10.08.2013
+# Last Modified:    10.10.2013
 #
-# Description:      Code is in progress.....currently non-functional.
+# Description:      Code is in progress....
 #
 #
 # Syntax:          ./AddToMP-CustomPortMonitor_v1.0 <Management_Server> <Management_Pack_Display_Name> <Service_Name> <Service_Display_Name> <Check_Startup_Type_Value>
 #
 # Example:         ./AddToMP-CustomPortMonitor_v1.0 SCOMMS01.fabrikam.local "Custom Service Monitors - Main MP" wuauserv "Windows Update" True
 
-param($ManagementServer,$ManagementPackDisplayName,$ServiceName,$ServiceDisplayName,$CheckStartupType)
+param($ManagementServer,$ManagementPackDisplayName,$MonitoredHost,$WatcherHost,$Port,$QueryInterval)
 
 $ManagementServer           = "SCOMMS223.scom.local"
-#$ManagementPackDisplayName  = "Custom Service Monitors - Base OS"
-#$ManagementPackDisplayName  = "Test Port Monitor - 80"
 $ManagementPackDisplayName  = "Test Port Monitor - Sandbox"
-$ServiceName                = "RemoteRegistry"
-$ServiceDisplayName         = "Remote Registry"
-$CheckStartupType           = "True"
+$MonitoredHost              = "SCOMDEVSRV.scom.local"
+$WatcherHost                = "SCOMDEVSRV.scom.local"
 $Port                       = "80"
+$QueryInterval              = "120"
+
 
 # [---START---] Try-Catch Wrapper for Entire Script.
 try {
@@ -44,29 +43,35 @@ try {
 		exit 2;
 		}
 
-	if (!$ServiceName) {
-		Write-Host "The Name of the Service you want to Monitor must be provided, i.e. - wuauserv."
+	if (!$MonitoredHost) {
+		Write-Host "The Name of the Host (NetBIOS or FQDN) you want to Monitor the TCP Port of must be provided, i.e. - TestServer101."
 		exit 2;
 		}
 
-	if (!$ServiceDisplayName) {
-		Write-Host "The Display Name of the Service you want to Monitor must be provided, i.e. - Windows Update."
+	if (!$WatcherHost) {
+		Write-Host "The Name of the Watcher Host (NetBIOS or FQDN) you want use to Monitor the Monitored Host, must be provided, i.e. - WatcherServer102."
 		exit 2;
-		}		
+		}
 		
-	if (!$CheckStartupType) {
-		Write-Host "A Check Startup Type Value for the Service Monitor must be provided, i.e. 'True' or 'False'."
+	if (!$Port) {
+		Write-Host "The Port Number you want to Monitor on the Monitored Host must be provided, i.e. '80'."
 		exit 2;
-		}		
+		}
+		
+	if (!$QueryInterval) {
+		Write-Host "The Query Interval (in Seconds) you want the Watcher Host to use must be provided, i.e. '120'."
+		exit 2;
+		}
 
 
-	Write-Host "Management Server:                    $($ManagementServer)"            
-	Write-Host "Management Pack Display Name:         $($ManagementPackDisplayName)" 
-	Write-Host "Service Name:                         $($ServiceName)"                 
-	Write-Host "Service Display Name:                 $($ServiceDisplayName)"         
-	Write-Host "Check Startup Type [True or False]:   $($CheckStartupType)`n"          
+	Write-Host "Management Server:                    $($ManagementServer)"
+	Write-Host "Management Pack Display Name:         $($ManagementPackDisplayName)"
+	Write-Host "Monitored Host:                       $($MonitoredHost)"
+	Write-Host "Watcher Host:                         $($WatcherHost)"
+	Write-Host "Port Number:                          $($Port)"
+	Write-Host "Query Interval (Seconds):             $($QueryInterval)`n"
 
-	
+
 	Write-Host "Connecting to the SCOM Management Group"
 	$MG = New-Object Microsoft.EnterpriseManagement.ManagementGroup($ManagementServer)
 
@@ -86,17 +91,17 @@ try {
 	Write-Host "Management Pack - [$($ManagementPackDisplayName)] was found in SCOM. Script will continue."
 
 
-	# Determining if the Service Monitor already exists in the Management Pack based upon its Name.
-    $ServiceMonitorCheck = $MP.GetMonitors()
+	# Determining if the Port Monitor already exists in the Management Pack based upon its Name.
+    $PortMonitorCheck = $MP.GetMonitors()
 	
-	Foreach ($Item in $ServiceMonitorCheck) {
-		If ($Item.DisplayName -eq $ServiceDisplayName) {
-			Write-Host "[$($ServiceDisplayName)] - Service Monitor already exists in [$($ManagementPackDisplayName)]. Script will now exit."
+	Foreach ($Item in $PortMonitorCheck) {
+		If ($Item.DisplayName -eq $Port) {
+			Write-Host "A Port Monitor for Port - [$($Port)] on Host - [$($MonitoredHost)] already exists in [$($ManagementPackDisplayName)]. Script will now exit."
 			exit 2;
 		}
 	}
 
-	Write-Host "[$($ServiceDisplayName)] - Service Monitor was not found in [$($ManagementPackDisplayName)]. Script will continue."
+	Write-Host "A Port Monitor for Port - [$($Port)] on Host - [$($MonitoredHost)] was not found in [$($ManagementPackDisplayName)]. Script will continue."
 
 
 	# Retrieving the Custom Class in the Management Pack.
@@ -146,7 +151,7 @@ try {
 	$TCPPortCheckCustomClass.Base        = $TCPPortCheckCustomClassBase
 	$TCPPortCheckCustomClass.Singleton   = $false
 	$TCPPortCheckCustomClass.Hosted      = $true
-	$TCPPortCheckCustomClass.DisplayName = "$($ManagementPackDisplayName), Registry Key - $($RegistryKey) - TCP Port Check"
+	$TCPPortCheckCustomClass.DisplayName = "$($ManagementPackDisplayName), Port: $($Port) - TCP Port Check"
 	
 	# Creating TCP Port Custom Classes - TCPPortCheckPerspectiveGroup
 	$TCPPortCheckGroupCustomClass             = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackClass($MP,("TCPPortCheck_"+$Port.ToString().Replace("$","_")+"_Group_"+[Guid]::NewGuid().ToString().Replace("-","")),"Public")
@@ -154,7 +159,7 @@ try {
 	$TCPPortCheckGroupCustomClass.Base        = $TCPPortCheckGroupCustomClassBase
 	$TCPPortCheckGroupCustomClass.Singleton   = $true
 	$TCPPortCheckGroupCustomClass.Hosted      = $false
-	$TCPPortCheckGroupCustomClass.DisplayName = "$($ManagementPackDisplayName), Registry Key - $($RegistryKey) - TCP Port Check Group"
+	$TCPPortCheckGroupCustomClass.DisplayName = "$($ManagementPackDisplayName), Port: $($Port) - TCP Port Check Group"
 	
 	# Creating TCP Port Custom Classes - TCPPortCheckWatcherComputersGroup
 	$TCPPortCheckComputersGroupCustomClass             = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackClass($MP,("TCPPortCheck_"+$Port.ToString().Replace("$","_")+"_WatcherComputersGroup_"+[Guid]::NewGuid().ToString().Replace("-","")),"Public")
@@ -162,14 +167,14 @@ try {
 	$TCPPortCheckComputersGroupCustomClass.Base        = $TCPPortCheckComputersGroupCustomClassBase
 	$TCPPortCheckComputersGroupCustomClass.Singleton   = $true
 	$TCPPortCheckComputersGroupCustomClass.Hosted      = $false
-	$TCPPortCheckComputersGroupCustomClass.DisplayName = "$($ManagementPackDisplayName), Registry Key - $($RegistryKey) - TCP Port Check Watcher Computers Group"
+	$TCPPortCheckComputersGroupCustomClass.DisplayName = "$($ManagementPackDisplayName), Port: $($Port) - TCP Port Check Watcher Computers Group"
 	
 	# Creating new Relationship Class Type
 	$TCPPortRelationshipClass             = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackRelationship($MP,("TCPPortCheck_"+$Port.ToString().Replace("$","_")+"_"+[Guid]::NewGuid().ToString().Replace("-","")+"_Group_Contains_"+$TCPPortCheckCustomClass),"Public")
 	$TCPPortRelationshipClassCriteria     = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackRelationshipCriteria("Name='System.Containment'")
 	$TCPPortRelationshipClassBase         = $MG.EntityTypes.GetRelationshipClasses($TCPPortRelationshipClassCriteria)[0]
 	$TCPPortRelationshipClass.Base        = $TCPPortRelationshipClassBase
-	$TCPPortRelationshipClass.DisplayName = "Group of Test Port Monitor - 81"
+	$TCPPortRelationshipClass.DisplayName = "Group of Test Port Monitor - $($Port)"
 	$TCPPortRelationshipSource            = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackRelationshipEndpoint($TCPPortRelationshipClass,"TCPPortCheckGroupCustomClass_Source")
 	$TCPPortRelationshipTarget            = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackRelationshipEndpoint($TCPPortRelationshipClass,"TCPPortCheckCustomClass_Target")	
 	$TCPPortRelationshipSource.Type       = $TCPPortCheckGroupCustomClass
@@ -195,13 +200,13 @@ try {
 	# Creating a Data Source Collection for the Data Source Module Type.
 	$TCPPortCheckDataSourceModuleTypeReference                = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($TCPPortCheckDataSourceModule,"Scheduler")
 	$TCPPortCheckDataSourceModuleTypeReference.TypeID         = $MG.GetMonitoringModuleTypes("System.Scheduler")[0]
-	$TCPPortCheckDataSourceModuleTypeReferenceConfiguration   = "<Scheduler><SimpleReccuringSchedule><Interval Unit=`"Seconds`">120</Interval></SimpleReccuringSchedule><ExcludeDates /></Scheduler>"
+	$TCPPortCheckDataSourceModuleTypeReferenceConfiguration   = "<Scheduler><SimpleReccuringSchedule><Interval Unit=`"Seconds`">$($QueryInterval)</Interval></SimpleReccuringSchedule><ExcludeDates /></Scheduler>"
 	$TCPPortCheckDataSourceModuleTypeReference.Configuration  = $TCPPortCheckDataSourceModuleTypeReferenceConfiguration
 	
 	# Creating a Probe Action Collection for the Data Source Module Type.
 	$TCPPortCheckProbeActionModuleTypeReference               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackModuleTypeReference($TCPPortCheckDataSourceModule,"Probe")
 	$TCPPortCheckProbeActionModuleTypeReference.TypeID        = $MG.GetMonitoringModuleTypes("Microsoft.SystemCenter.SyntheticTransactions.TCPPortCheckProbe")[0]
-	$TCPPortCheckProbeActionModuleTypeReferenceConfiguration  = "<ServerName>SCOMDEVSRV</ServerName><Port>81</Port>"
+	$TCPPortCheckProbeActionModuleTypeReferenceConfiguration  = "<ServerName>$($MonitoredHost)</ServerName><Port>$($Port)</Port>"
 	$TCPPortCheckProbeActionModuleTypeReference.Configuration = $TCPPortCheckProbeActionModuleTypeReferenceConfiguration
 	
 	# Adding the Data Source Collection & Probe Action Collection to the Data Source Module Type.
@@ -564,42 +569,45 @@ try {
 	
 	
 	
-	# Creating a New Management Pack Discovery for the TCPPortCheckPerspectiveClass
+	# Creating a New Discovery Rule for the TCPPortCheckPerspectiveClass
 	$TCPPortCheckPerspectiveClassDiscovery             = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackDiscovery($MP,($TCPPortCheckCustomClass.ToString()+"_Discovery_Rule"))
 	$TCPPortCheckPerspectiveClassDiscovery.Category    = "Discovery"
-	$TCPPortCheckPerspectiveClassDiscovery.DisplayName = "Discovery - TCPPortCheckPerspectiveClass"
-	$TCPPortCheckPerspectiveClassDiscovery.Description = "Discovery for the Class - TCPPortCheckPerspectiveClass"
+	$TCPPortCheckPerspectiveClassDiscovery.DisplayName = "Test Port Monitor - $($Port) Discovery"
+	$TCPPortCheckPerspectiveClassDiscovery.Description = "Discovery Rule for the Test Port Monitor - $($Port)"
 
-	# Creating Discovery Target for the TCPPortCheckPerspectiveClass
+	# Creating and Adding the Discovery Target for the TCPPortCheckPerspectiveClass
 	$TCPPortCheckPerspectiveClassDiscoveryTarget  = $MG.EntityTypes.GetClasses("Name='Microsoft.Windows.Computer'")[0]
 	$TCPPortCheckPerspectiveClassDiscovery.Target = $TCPPortCheckPerspectiveClassDiscoveryTarget
 	
-	# Creating Discovery Class using the TCPPortCheckPerspectiveClass
+	# Creating and Adding the Discovery Class using the TCPPortCheckPerspectiveClass
 	$TCPPortCheckPerspectiveClass_DiscoveryClass = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackDiscoveryClass
 	$TCPPortCheckPerspectiveClass_DiscoveryClass.set_TypeID($TCPPortCheckCustomClass)
 	$TCPPortCheckPerspectiveClassDiscovery.DiscoveryClassCollection.Add($TCPPortCheckPerspectiveClass_DiscoveryClass)
 
-	# Creating Discovery Relationship using the TCPPortCheckPerspectiveClass
+	# Creating and Adding the Discovery Relationship using the TCPPortCheckPerspectiveClass
 	$TCPPortCheckPerspectiveClass_DiscoveryRelationship        = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackDiscoveryRelationship
 	$TCPPortCheckPerspectiveClass_DiscoveryRelationship_TypeID = $MG.EntityTypes.GetRelationshipClasses("Name='Microsoft.SystemCenter.SyntheticTransactions.ComputerHostsTCPPortCheckPerspective'")[0]
 	$TCPPortCheckPerspectiveClass_DiscoveryRelationship.set_TypeID($TCPPortCheckPerspectiveClass_DiscoveryRelationship_TypeID)
 	$TCPPortCheckPerspectiveClassDiscovery.DiscoveryRelationshipCollection.Add($TCPPortCheckPerspectiveClass_DiscoveryRelationship)
 
-	# Creating a DataSource for the Discovery of the TCPPortCheckPerspectiveClass
-	$TCPPortCheckPerspectiveClassDiscovery_DS               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackDataSourceModule($TCPPortCheckPerspectiveClassDiscovery,"DS")
+	# Creating and Adding the DataSource for the Discovery Rule of the TCPPortCheckPerspectiveClass
+	$TCPPortCheckPerspectiveClassDiscovery_DS               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackDataSourceModule($TCPPortCheckPerspectiveClassDiscovery,"PerspectiveDiscoveryDS")
 	$TCPPortCheckPerspectiveClassDiscovery_DS_ModuleType    = $MG.GetMonitoringModuleTypes("Microsoft.SystemCenter.SyntheticTransactions.PerspectiveDiscoveryDataSource")[0]
 	$TCPPortCheckPerspectiveClassDiscovery_DS_UniqueKey     = [Guid]::NewGuid().ToString()
 	$TCPPortCheckPerspectiveClassDiscovery_DS.TypeID        = [Microsoft.EnterpriseManagement.Configuration.ManagementPackDataSourceModuleType]$TCPPortCheckPerspectiveClassDiscovery_DS_ModuleType
 	$TCPPortCheckPerspectiveClassDiscovery_DS.Configuration = "<ClassId>`$MPElement[Name=`"$($TCPPortCheckCustomClass.Name)`"]$</ClassId>
           													   <DisplayName>Test Port Monitor - Sandbox</DisplayName>
-          													   <WatcherComputersList>SCOMDEVSRV.scom.local</WatcherComputersList>
+          													   <WatcherComputersList>$($WatcherHost)</WatcherComputersList>
          													   <UniquenessKey>$($TCPPortCheckPerspectiveClassDiscovery_DS_UniqueKey)</UniquenessKey>"
 
 
+
+	# Adding the DataSource to the Discovery Rule for the TCPPortCheckPerspectiveClass
 	$TCPPortCheckPerspectiveClassDiscovery.DataSource    = $TCPPortCheckPerspectiveClassDiscovery_DS
 
-
-
+	
+	# For The Group Discovery, you are going to have to create a call to get the GUID of the Server of the Port you are monitoring.
+	#$MG.GetMonitoringObject("c6fa7f24-1c05-c54b-a85e-1c65615c5320")
 
 
 	<#
@@ -613,7 +621,7 @@ try {
 
 	# Applying changes to the Management Pack in the SCOM Database.	
 	try {
-		Write-Host "Attempting to Add [$($Monitor.DisplayName)] - Service Monitor to Management Pack - [$($MP.DisplayName)]"
+		Write-Host "Attempting to Add Custom Port Monitor for Port - [$($Port)] on Host - [$($MonitoredHost)] to Management Pack - [$($MP.DisplayName)]"
 		$MP.AcceptChanges()
 		}
 	catch [System.Exception]
@@ -630,4 +638,4 @@ catch [System.Exception]
 			exit 2
 	}
 
-Write-Host "Deployment of Custom Service Monitor for [$($ServiceDisplayName)] to Management Pack - [$($ManagementPackDisplayName)] was Successful!"
+Write-Host "Deployment of Custom Port Monitor for Port - [$($Port)] on Host - [$($MonitoredHost)] to Management Pack - [$($ManagementPackDisplayName)] was Successful!"
