@@ -2,23 +2,23 @@
 #
 # Author(s):        Ryan Irujo
 # Inception:        11.23.2013
-# Last Modified:    11.24.2013
+# Last Modified:    11.25.2013
 #
 # Description:      Code is in progress....
 #
 #
-# Syntax:          ./CreateMPandCustomGroup_v1.0 <Management_Server> <Management_Pack_Display_Name> 
+# Syntax:          ./CreateMPandCustomGroup_v1.0 <Management_Server> <MP_ID> <MP_Name> <MP_DisplayName> <Monitored_Hosts>
 #
-# Example:         ./CreateMPandCustomGroup_v1.0 SCOMMS01.fabrikam.local "Custom Service Monitors - Main MP"
+# Example:         ./CreateMPandCustomGroup_v1.0 SCOMMS01.fabrikam.local "Test.Custom.Group.101" "Test.Custom.Group.101" "Test Custom Group 101" ("TestServer101",TestServer102")
 
-param($ManagementServer,$ManagementPackID,$ManagementPackName,$ManagementPackDisplayName,$MonitoredHost)
+param($ManagementServer,$ManagementPackID,$ManagementPackName,$ManagementPackDisplayName,[array]$MonitoredHosts)
 
 $ManagementServer           = "SCOMMS223.scom.local"
 $ManagementPackID           = "Test.Custom.Group.101"
 $ManagementPackName         = "Test.Custom.Group.101"
 $ManagementPackDisplayName  = "Test Custom Group - 101"
-$MonitoredHost              = "SCOMDB222.scom.local"
-
+[array]$MonitoredHosts      = ("SCORCH224.scom.local","SCOMDC221.scom.local")
+$HostGUIDs                  = $null
 
 # [---START---] Try-Catch Wrapper for Entire Script.
 try {
@@ -52,8 +52,8 @@ try {
 		exit 2;
 		}
 
-	if (!$MonitoredHost) {
-		Write-Host "The Name of the Host (NetBIOS or FQDN) you want to Monitor the TCP Port of must be provided, i.e. - TestServer101."
+	if (!$MonitoredHosts) {
+		Write-Host "The Name of the Hosts (NetBIOS or FQDN) you want to add to the Custom Group must be provided , i.e. - (`"TestServer101`",`"TestServer102`")."
 		exit 2;
 		}
 
@@ -62,11 +62,20 @@ try {
 	Write-Host "Management Pack ID:                   $($ManagementPackID)"
 	Write-Host "Management Pack Name:                 $($ManagementPackName)"
 	Write-Host "Management Pack Display Name:         $($ManagementPackDisplayName)"
-	Write-Host "Monitored Host:                       $($MonitoredHost)"
+	Write-Host "Monitored Hosts:                       $($MonitoredHosts)"
 
-
+	# Connecting to the SCOM Management Group
 	Write-Host "Connecting to the SCOM Management Group"
 	$MG = New-Object Microsoft.EnterpriseManagement.ManagementGroup($ManagementServer)
+
+	
+	# Determining the GUID of the Monitored Hosts in SCOM.
+	Foreach ($MonitoredHost in $MonitoredHosts) {
+			 echo "$($MonitoredHost)"
+			 $ObjectCriteria = New-Object Microsoft.EnterpriseManagement.Monitoring.MonitoringObjectGenericCriteria("FullName='Microsoft.Windows.Computer:$($MonitoredHost)'")
+			 $HostGUID  = ($MG.GetMonitoringObjects($ObjectCriteria)).Id.ToString()
+			 $HostGUIDs += "<MonitoringObjectId>$HostGUID</MonitoringObjectId>`n"
+			 }
 
 
 	# Determining if the Management Pack exists based upon its Display Name using a String Query.
@@ -163,20 +172,25 @@ try {
 	$CustomComputerGroupClassDiscovery_DS               = New-Object Microsoft.EnterpriseManagement.Configuration.ManagementPackDataSourceModule($CustomComputerGroupClassDiscovery,"GroupPopulationDataSource")
 	$CustomComputerGroupClassDiscovery_DS_ModuleType    = $MG.GetMonitoringModuleTypes("Microsoft.SystemCenter.GroupPopulator")[0]
 	$CustomComputerGroupClassDiscovery_DS.TypeID        = [Microsoft.EnterpriseManagement.Configuration.ManagementPackDataSourceModuleType]$CustomComputerGroupClassDiscovery_DS_ModuleType
-	$CustomComputerGroupClassDiscovery_DS_UniqueKey     = [Guid]::NewGuid().ToString()
 	$CustomComputerGroupClassDiscovery_DS.Configuration = "<RuleId>`$MPElement$</RuleId>
-          												   <GroupInstanceId>`$MPElement[Name=`"$($CustomComputerGroupClass)`"]$</GroupInstanceId>
-         												   <MembershipRules>
-           												     <MembershipRule>
-              												   <MonitoringClass>`$MPElement[Name=`"$($WindowsServer2008DiscoveryLibraryAlias)!Microsoft.Windows.Server.2008.R2.Full.Computer`"]$</MonitoringClass>
-              												   <RelationshipClass>`$MPElement[Name=`"$($GroupLibraryAlias)!Microsoft.SystemCenter.InstanceGroupContainsEntities`"]$</RelationshipClass>
-             												   <IncludeList>
-               													 <MonitoringObjectId>157457de-2592-d485-af9a-79cbe951d5bd</MonitoringObjectId>
-             												     <MonitoringObjectId>858ae073-7cce-5e7c-51fa-b1da18df88a2</MonitoringObjectId>
-            												   </IncludeList>
-           												     </MembershipRule>
-         												   </MembershipRules>"
+          						       <GroupInstanceId>`$MPElement[Name=`"$($CustomComputerGroupClass)`"]$</GroupInstanceId>
+         							<MembershipRules>
+           							  <MembershipRule>
+              							     <MonitoringClass>`$MPElement[Name=`"$($WindowsServer2008DiscoveryLibraryAlias)!Microsoft.Windows.Server.2008.R2.Full.Computer`"]$</MonitoringClass>
+              							     <RelationshipClass>`$MPElement[Name=`"$($GroupLibraryAlias)!Microsoft.SystemCenter.InstanceGroupContainsEntities`"]$</RelationshipClass>
+             							     <IncludeList>
+               							       <MonitoringObjectId></MonitoringObjectId>
+            							     </IncludeList>
+           							 </MembershipRule>
+         						        </MembershipRules>"
+	
+	# Adding the Host GUIDs into the DataSource of the Discovery Rule for the CustomComputerGroupClass
+	$Discovery_DS_Updated_Configuration = $CustomComputerGroupClassDiscovery_DS.Configuration.Replace("<MonitoringObjectId></MonitoringObjectId>","$HostGUIDs")
 
+	# Applying the Host GUIDs into the DataSource of the Discovery Rule for the CustomComputerGroupClass
+	$CustomComputerGroupClassDiscovery_DS.Configuration = $Discovery_DS_Updated_Configuration
+
+	
 	# Adding the DataSource to the Discovery Rule for the CustomComputerGroupClass
 	$CustomComputerGroupClassDiscovery.DataSource = $CustomComputerGroupClassDiscovery_DS
 
