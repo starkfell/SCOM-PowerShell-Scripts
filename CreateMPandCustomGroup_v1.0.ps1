@@ -2,19 +2,20 @@
 #
 # Author(s):        Ryan Irujo
 # Inception:        11.23.2013
-# Last Modified:    11.25.2013
+# Last Modified:    11.26.2013
 #
 # Description:      Creates a Custom Management Pack and a Custom Group. Additionally, it adds as many Monitored Hosts to the Group
 #                   based upon the number provided to the Script.
 #
-# Notes:            Currently, this script has a problem with Machines that have an "_" in their name and will return an error. This is 
-#                   because SCOM automatically removes any "_" characters in a Hostname of a machine. i.e. TEST_SERVER becomes TESTSERVER
-#                   in SCOM.
+# Changes:          11.26.2013 - [R. Irujo]
+#                   - Added functionality whereby if special characters were found in the Management Pack ID, Management Pack Name or 
+#                     any Monitored Hosts, they will be removed before the Script continues.
+#
 #
 #
 # Syntax:          ./CreateMPandCustomGroup_v1.0 <Management_Server> <MP_ID> <MP_Name> <MP_DisplayName> <Monitored_Hosts>
 #
-# Example:         ./CreateMPandCustomGroup_v1.0 SCOMMS01.fabrikam.local "Test.Custom.Group.101" "Test.Custom.Group.101" "Test Custom Group 101" ("TestServer101",TestServer102")
+# Example:         ./CreateMPandCustomGroup_v1.0 SCOMMS01.fabrikam.local "Test.Custom.Group.101" "Test.Custom.Group.101" "Test Custom Group 101" ("TestServer101","TestServer102")
 
 param($ManagementServer,$ManagementPackID,$ManagementPackName,$ManagementPackDisplayName,[array]$MonitoredHosts)
 
@@ -67,6 +68,27 @@ try {
 	Write-Host "Connecting to the SCOM Management Group"
 	$MG = New-Object Microsoft.EnterpriseManagement.ManagementGroup($ManagementServer)
 
+
+	# Replacing Special Characters that may appear in the Management Pack ID.
+	If ($ManagementPackID -match "[!@#$%^&*()`_-]") {
+		$ManagementPackID = $ManagementPackID -replace "[!@#$%^&*()`_-]",""
+		}
+
+	# Replacing Special Characters that may appear in the Management Pack Name.
+	If ($ManagementPackName -match "[!@#$%^&*()`_-]") {
+		$ManagementPackName = $ManagementPackName -replace "[!@#$%^&*()`_-]",""
+		}
+
+	# Renaming Monitored Hosts that contain Underscore and/or Dash Characters in their Names.
+	Foreach ($MonitoredHost in $MonitoredHosts) {
+			If ($MonitoredHost -match "[_-]") {
+				$MonitoredHosts += $MonitoredHost -replace "[_-]",""
+				}
+			}
+	
+	# Removing old Monitored Hosts names that contain Underscore and/or Dash Characters in their Names.
+	$MonitoredHosts = $MonitoredHosts | Where-Object {$_ -notmatch "[_-]"}
+	
 	
 	# Determining the GUID of the Monitored Hosts in SCOM.
 	$HostGUIDs = $null
@@ -164,15 +186,15 @@ try {
 	$CustomComputerGroupClassDiscovery_DS.TypeID        = [Microsoft.EnterpriseManagement.Configuration.ManagementPackDataSourceModuleType]$CustomComputerGroupClassDiscovery_DS_ModuleType
 	$CustomComputerGroupClassDiscovery_DS.Configuration = "<RuleId>`$MPElement$</RuleId>
           						       <GroupInstanceId>`$MPElement[Name=`"$($CustomComputerGroupClass)`"]$</GroupInstanceId>
-         						       <MembershipRules>
-           							 <MembershipRule>
-              							   <MonitoringClass>`$MPElement[Name=`"SystemCenter!Microsoft.SystemCenter.ManagedComputer`"]$</MonitoringClass>
-              							   <RelationshipClass>`$MPElement[Name=`"$($GroupLibraryAlias)!Microsoft.SystemCenter.InstanceGroupContainsEntities`"]$</RelationshipClass>
-             							   <IncludeList>
-               							     <MonitoringObjectId></MonitoringObjectId>
-            							   </IncludeList>
-           							 </MembershipRule>
-         						       </MembershipRules>"
+         							<MembershipRules>
+           							  <MembershipRule>
+              							    <MonitoringClass>`$MPElement[Name=`"SystemCenter!Microsoft.SystemCenter.ManagedComputer`"]$</MonitoringClass>
+              							    <RelationshipClass>`$MPElement[Name=`"$($GroupLibraryAlias)!Microsoft.SystemCenter.InstanceGroupContainsEntities`"]$</RelationshipClass>
+             							    <IncludeList>
+               							      <MonitoringObjectId></MonitoringObjectId>
+            							    </IncludeList>
+           							  </MembershipRule>
+         							</MembershipRules>"
 	
 	# Adding the Host GUIDs into the DataSource of the Discovery Rule for the CustomComputerGroupClass
 	$Discovery_DS_Updated_Configuration = $CustomComputerGroupClassDiscovery_DS.Configuration.Replace("<MonitoringObjectId></MonitoringObjectId>","$HostGUIDs")
