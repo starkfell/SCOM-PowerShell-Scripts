@@ -1,4 +1,4 @@
-<#  --- [CreateMP-CustomServiceMonitor] PowerShell Script  ---
+<#  --- [EnableSCOMNotificationSubscriptions] PowerShell Script  ---
 
 Author(s):        Ryan Irujo
 Inception:        01.21.2015
